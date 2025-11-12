@@ -1,0 +1,24 @@
+# Ignore everything we don't need in Docker build context
+
+# Git & local setup
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+
+# Rust build outputs
+target
+Cargo.lock
+
+# Environment
+.env
+**/.env
+
+# Docs and configs
+README.md
+docker-compose.yml
+
+# Frontend files (if any)
+node_modules
+build

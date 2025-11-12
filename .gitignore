@@ -1,0 +1,39 @@
+# Rust build artifacts
+/target
+**/target
+
+# Cargo
+.cargo/
+Cargo.lock
+
+# IDE / Editor junk
+.vscode/
+.idea/
+.DS_Store
+
+# Environment files
+.env
+**/.env
+
+# Logs & temporary data
+*.log
+/tmp/
+*.swp
+
+# OS-specific
+Thumbs.db
+ehthumbs.db
+Icon?
+.DS_Store
+
+# Docker
+docker-compose.override.yml
+
+# Node or Flutter (in case you add mobile/frontend in same repo)
+node_modules/
+build/
+pubspec.lock
+
+# Coverage / test outputs
+coverage/
+**/coverage/
