@@ -13,6 +13,7 @@ mod models {
 mod services {
     pub mod user_service;
 }
+mod error;
 use crate::config::db;
 use dotenvy::dotenv;
 use std::sync::Arc;
