@@ -7,6 +7,12 @@ mod dtos {
     pub mod auth_dto;
     pub mod general_res_dto;
 }
+mod models {
+    pub mod user;
+}
+mod services {
+    pub mod user_service;
+}
 use crate::config::db;
 use dotenvy::dotenv;
 use std::sync::Arc;
