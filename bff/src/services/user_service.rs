@@ -1,4 +1,6 @@
-use crate::models::user::User;
+use mongodb::{Database, error::Error};
+
+use crate::{models::user::User};
 
 
 pub struct UserService {
@@ -7,6 +9,6 @@ pub struct UserService {
 
 impl User {
     pub async fn crate_user() -> Result<Self, Error> {
-
+        
     }
 }

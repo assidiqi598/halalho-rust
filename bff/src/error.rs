@@ -1,21 +1,17 @@
+use axum::{
+    Json, http::StatusCode, response::{IntoResponse, Response}
+};
+use serde_json::json;
 
 #[derive(thiserror::Error, Debug)]
 pub enum CustomError {
     #[error("MongoDB error")]
     MongoError(#[from] mongodb::error::Error),
     #[error("Duplicate key error: {0}")]
-    MongoErrorKind(mongodb::error::ErrorKind),
-    #[error("Duplicate key error: {0}")]
-    MongoDuplicateError(mongodb::error::Error),
-    #[error("Error during mongodb query: {0}")]
-    MongoQueryError(mongodb::error::Error),
-    #[error("Error serializing BSON")]
-    MongoSerializeBsonError(#[from] mongodb::bson::ser::Error),
-    #[error("Validation error")]
-    MongoDataError(#[from] mongodb::bson::document::ValueAccessError),
+    DuplicateKey(String),
     #[error("Invalid ID: {0}")]
     InvalidIDError(String),
-    #[error("Note with ID: {0} not found")]
+    #[error("Not found: {0}")]
     NotFoundError(String),
     #[error("Wrong credentials")]
     WrongCredentials,
@@ -27,3 +23,40 @@ pub enum CustomError {
     InvalidToken,
 }
 
+impl IntoResponse for CustomError {
+    fn into_response(self) -> Response {
+        let (status, err_msg) = match self {
+            CustomError::WrongCredentials => {
+                (StatusCode::UNAUTHORIZED, "Wrong credentials".to_string())
+            }
+            CustomError::MissingCredentials => {
+                (StatusCode::BAD_REQUEST, "Missing credentials".to_string())
+            }
+            CustomError::TokenCreation => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Token creation error".to_string(),
+            ),
+            CustomError::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token".to_string()),
+            CustomError::MongoError(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("MongoDB error: {}", e),
+            ),
+            CustomError::DuplicateKey(key) => {
+                (StatusCode::CONFLICT, format!("Doc {} already exists", key))
+            }
+            CustomError::InvalidIDError(id) => {
+                (StatusCode::BAD_REQUEST, format!("Id {id} is invalid"))
+            }
+            CustomError::NotFoundError(param) => (
+                StatusCode::NOT_FOUND,
+                format!("Doc with {} not found", param),
+            ),
+        };
+
+        let body = Json(json!({
+            "error": err_msg
+        }));
+
+        (status, body).into_response()
+    }
+}
