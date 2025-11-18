@@ -14,6 +14,7 @@ mod models {
 }
 mod services {
     pub mod user_service;
+    pub mod jwt_service;
 }
 mod error;
 use crate::{config::db, services::user_service::UserService};
