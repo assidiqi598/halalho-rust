@@ -1,4 +1,6 @@
-mod config;
+mod config {
+    pub mod db;
+}
 mod routes;
 mod handlers {
     pub mod auth_handler;
