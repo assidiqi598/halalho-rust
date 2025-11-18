@@ -16,3 +16,15 @@ pub struct User {
     #[serde(with = "chrono_datetime_as_bson_datetime")]
     pub updatedAt: DateTime<Utc>,
 }
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NewUser {
+    pub username: String,
+    pub email: String,
+    pub password: String,
+    #[serde(with = "chrono_datetime_as_bson_datetime")]
+    pub createdAt: DateTime<Utc>,
+    #[serde(with = "chrono_datetime_as_bson_datetime")]
+    pub updatedAt: DateTime<Utc>,
+}

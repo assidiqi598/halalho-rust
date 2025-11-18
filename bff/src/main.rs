@@ -16,19 +16,19 @@ mod services {
     pub mod user_service;
 }
 mod error;
-use crate::config::db;
-use dotenvy::dotenv;
-use std::sync::Arc;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use routes::create_router;
-use tower_http::cors::CorsLayer;
+use crate::{config::db, services::user_service::UserService};
 use axum::http::{
+    HeaderValue, Method,
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
-    HeaderValue, Method
 };
+use dotenvy::dotenv;
+use routes::create_router;
+use std::sync::Arc;
+use tower_http::cors::CorsLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 pub struct AppState {
-    db: mongodb::Database
+    pub user_service: UserService,
 }
 
 #[tokio::main]
@@ -46,14 +46,19 @@ async fn main() {
     println!("✅ Connected to MongoDB");
 
     let cors = CorsLayer::new()
-        .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
+        .allow_origin("http://localhost".parse::<HeaderValue>().unwrap())
         .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::DELETE])
         .allow_credentials(true)
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE]);
 
-    let app = create_router(Arc::new(AppState { db: db.clone() })).layer(cors);
+    let app = create_router(Arc::new(AppState {
+        user_service: UserService {
+            db
+        },
+    }))
+    .layer(cors);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8000")
+    let listener = tokio::net::TcpListener::bind("localhost:8000")
         .await
         .unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
