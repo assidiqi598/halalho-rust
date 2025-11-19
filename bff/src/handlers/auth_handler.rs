@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{Json, extract::State, debug_handler};
 use chrono::Utc;
-use crate::{AppState, dtos::{auth_dto, general_res_dto::GeneralResDto}, models::user::NewUser};
+use crate::{AppState, dtos::{auth_dto, general_res_dto::GeneralResDto}, models::user::NewUser, services::auth_service::hash_password};
 use crate::error::CustomError;
 
 #[debug_handler]
@@ -12,10 +12,18 @@ pub async fn register(State(state): State<Arc<AppState>>, Json(payload): Json<au
         return Err(CustomError::MissingCredentials);
     }
 
+    let password_hash = match hash_password(payload.password) {
+        Ok(value) => value,
+        Err(_) => return Err(CustomError::HashError)
+    };
+
+    // let password_hash = hash_password(payload.password)
+    // .map_err(|_| CustomError::WrongCredentials)?;
+
     let user = NewUser {
         email: payload.email,
         username: payload.username,
-        password: payload.password,
+        password: password_hash,
         createdAt: Utc::now(),
         updatedAt: Utc::now()
     };

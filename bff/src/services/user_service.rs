@@ -1,6 +1,6 @@
 use mongodb::{Database, error::Result};
 
-use crate::models::user::NewUser;
+use crate::{models::user::NewUser};
 
 pub struct UserService {
     pub db: Database,

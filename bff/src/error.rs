@@ -21,6 +21,8 @@ pub enum CustomError {
     TokenCreation,
     #[error("Invalid token")]
     InvalidToken,
+    #[error("Hash error")]
+    HashError
 }
 
 impl IntoResponse for CustomError {
@@ -37,9 +39,9 @@ impl IntoResponse for CustomError {
                 "Token creation error".to_string(),
             ),
             CustomError::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token".to_string()),
-            CustomError::MongoError(e) => (
+            CustomError::MongoError(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("MongoDB error: {}", e),
+                "MongoDB error".to_string(),
             ),
             CustomError::DuplicateKey(key) => {
                 (StatusCode::CONFLICT, format!("Doc {} already exists", key))
@@ -51,6 +53,9 @@ impl IntoResponse for CustomError {
                 StatusCode::NOT_FOUND,
                 format!("Doc with {} not found", param),
             ),
+            CustomError::HashError => {
+                (StatusCode::NOT_ACCEPTABLE, "Error when hashing".to_string())
+            }
         };
 
         let body = Json(json!({
