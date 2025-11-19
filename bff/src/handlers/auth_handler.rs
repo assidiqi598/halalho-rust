@@ -58,10 +58,12 @@ pub async fn login(
     let user = state.user_service.get_user_by_email(&payload.email).await?;
 
     match verify_password(payload.password, user.password) {
-        Ok(_) => Ok(Json(GeneralResDto {
+        Ok(_) => {
+            println!("User {} has logged in", user.email);
+            Ok(Json(GeneralResDto {
             message: "Ok".to_string(),
             status_code: 201,
-        })),
+        }))},
         Err(_) => Err(CustomError::WrongCredentials)
     }
 }

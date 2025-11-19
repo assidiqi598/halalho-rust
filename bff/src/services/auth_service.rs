@@ -21,7 +21,7 @@ impl Keys {
     }
 }
 
-pub static Keys: LazyLock<Keys> = LazyLock::new(|| {
+pub static KEYS: LazyLock<Keys> = LazyLock::new(|| {
     let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
     Keys::new(secret.as_bytes())
 });
