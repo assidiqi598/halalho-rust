@@ -1,6 +1,6 @@
-use mongodb::{Database, error::Result};
+use mongodb::{Database, error::{ErrorKind, WriteFailure}};
 
-use crate::{models::user::NewUser};
+use crate::{error::CustomError, models::user::NewUser};
 
 pub struct UserService {
     pub db: Database,
@@ -11,15 +11,28 @@ impl UserService {
         Self { db }
     }
 
-    pub async fn crate_user(&self, data: &NewUser) -> Result<()> {
-        let res = self
+    pub async fn create_user(&self, data: &NewUser) -> Result<(), CustomError> {
+        match self
             .db
             .collection::<NewUser>("users")
             .insert_one(data)
-            .await?;
-        println!("Inserted a document with _id: {}", res.inserted_id);
+            .await
+        {
+            Ok(value) => {
+                println!("Created a user with _id: {}", value.inserted_id);
+                Ok(())
+            },
+            Err(error) => {
+                eprintln!("Error inserting document: {}", error);
 
-        Ok(())
+                match error.kind.as_ref() {
+                    ErrorKind::Write(WriteFailure::WriteError(w)) if w.code == 11000 => {
+                        Err(CustomError::DuplicateKey(data.email.clone()))
+                    },
+                    _ => Err(CustomError::MongoError(error))
+                }
+            }
+        }
     }
 
     // pub async fn get_user_by_email(&self, email: &'static string) ->

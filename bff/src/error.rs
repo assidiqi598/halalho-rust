@@ -44,7 +44,7 @@ impl IntoResponse for CustomError {
                 "MongoDB error".to_string(),
             ),
             CustomError::DuplicateKey(key) => {
-                (StatusCode::CONFLICT, format!("Doc {} already exists", key))
+                (StatusCode::CONFLICT, format!("{} already exists", key))
             }
             CustomError::InvalidIDError(id) => {
                 (StatusCode::BAD_REQUEST, format!("Id {id} is invalid"))

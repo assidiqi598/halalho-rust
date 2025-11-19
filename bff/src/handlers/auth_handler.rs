@@ -18,7 +18,7 @@ pub async fn register(State(state): State<Arc<AppState>>, Json(payload): Json<au
     };
 
     // let password_hash = hash_password(payload.password)
-    // .map_err(|_| CustomError::WrongCredentials)?;
+    // .map_err(|_| CustomError::HashError)?;
 
     let user = NewUser {
         email: payload.email,
@@ -28,7 +28,7 @@ pub async fn register(State(state): State<Arc<AppState>>, Json(payload): Json<au
         updatedAt: Utc::now()
     };
     
-    state.user_service.crate_user(&user).await?;
+    state.user_service.create_user(&user).await?;
 
     Ok(Json(GeneralResDto {
         message: "Ok".to_string(),
