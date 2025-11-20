@@ -1,11 +1,22 @@
+use crate::{dtos::auth_dto::AuthResDto, error::CustomError, utils::now_epoch};
 use argon2::{
     Argon2,
     password_hash::{
         Error, PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng,
     },
 };
-use jsonwebtoken::{DecodingKey, EncodingKey};
+use axum::{RequestPartsExt, extract::FromRequestParts, http::request::Parts};
+use axum_extra::{
+    TypedHeader,
+    headers::{Authorization, authorization::Bearer},
+};
+use bson::uuid;
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use serde::{Deserialize, Serialize};
 use std::{env, fmt::Display, sync::LazyLock};
+
+const ACCESS_EXP_MINUTES: u32 = 15;
+const REFRESH_EXP_DAYS: u32 = 7;
 
 pub struct Keys {
     encoding: EncodingKey,
@@ -26,6 +37,7 @@ pub static KEYS: LazyLock<Keys> = LazyLock::new(|| {
     Keys::new(secret.as_bytes())
 });
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     sub: String,
     exp: usize,
@@ -34,7 +46,34 @@ pub struct Claims {
 impl Display for Claims {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Sub: {}\nExpire: {}", self.sub, self.exp)
-    }   
+    }
+}
+
+impl<S> FromRequestParts<S> for Claims
+where
+    S: Send + Sync,
+{
+    type Rejection = CustomError;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        // Extract the token from the authorization header
+        let TypedHeader(Authorization(bearer)) = parts
+            .extract::<TypedHeader<Authorization<Bearer>>>()
+            .await
+            .map_err(|_| CustomError::InvalidToken)?;
+        // Decode the user data
+        let token_data = decode::<Claims>(bearer.token(), &KEYS.decoding, &Validation::default())
+            .map_err(|_| CustomError::InvalidToken)?;
+
+        Ok(token_data.claims)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RefreshClaims {
+    sub: String,
+    exp: usize,
+    jti: String,
 }
 
 pub fn hash_password(password: String) -> Result<String, Error> {
@@ -54,4 +93,25 @@ pub fn verify_password(password: String, password_hash: String) -> Result<(), Er
     let parsed_hash = PasswordHash::new(&password_hash)?;
 
     Argon2::default().verify_password(password_as_bytes, &parsed_hash)
+}
+
+pub fn generate_tokens(user_id: String) -> Result<AuthResDto, CustomError> {
+    let claims = Claims {
+        sub: user_id.clone(),
+        exp: now_epoch() + (ACCESS_EXP_MINUTES * 60) as usize,
+    };
+
+    let refresh_claims = RefreshClaims {
+        sub: user_id,
+        exp: now_epoch() + (REFRESH_EXP_DAYS * 24 * 3600) as usize,
+        jti: uuid::Uuid::new().to_string(),
+    };
+
+    let access_token = encode(&Header::default(), &claims, &KEYS.encoding)
+        .map_err(|_| CustomError::TokenCreation)?;
+
+    let refresh_token = encode(&Header::default(), &refresh_claims, &KEYS.encoding)
+        .map_err(|_| CustomError::TokenCreation)?;
+
+    Ok(AuthResDto::new(access_token, refresh_token))
 }

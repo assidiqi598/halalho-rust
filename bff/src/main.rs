@@ -17,6 +17,8 @@ mod services {
     pub mod auth_service;
 }
 mod error;
+mod utils;
+
 use crate::{config::db, services::user_service::UserService};
 use axum::http::{
     HeaderValue, Method,
@@ -59,7 +61,9 @@ async fn main() {
     }))
     .layer(cors);
 
-    let listener = tokio::net::TcpListener::bind("localhost:8000")
+    let port = std::env::var("BFF_PORT").expect("BFF_PORT is not set");
+
+    let listener = tokio::net::TcpListener::bind("localhost:".to_string() + &port)
         .await
         .unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());

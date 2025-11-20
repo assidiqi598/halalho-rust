@@ -26,11 +26,11 @@ impl UserService {
             .await
         {
             Ok(value) => {
-                println!("Created a user with _id: {}", value.inserted_id);
+                tracing::debug!("Created a user with _id: {}", value.inserted_id);
                 Ok(())
             }
             Err(error) => {
-                eprintln!("Error inserting document: {}", error);
+                tracing::debug!("Error inserting document: {}", error);
 
                 match error.kind.as_ref() {
                     ErrorKind::Write(WriteFailure::WriteError(w)) if w.code == 11000 => {
@@ -52,7 +52,7 @@ impl UserService {
             Ok(Some(user)) => Ok(user),
             Ok(None) => Err(CustomError::NotFoundError(email.to_string())),
             Err(err) => {
-                eprintln!("Error finding user: {}", err);
+                tracing::debug!("Error finding user: {}", err);
                 Err(CustomError::MongoError(err))
             }
         }

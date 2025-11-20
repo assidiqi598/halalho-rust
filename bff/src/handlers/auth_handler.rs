@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
+use crate::dtos::auth_dto::AuthResDto;
 use crate::error::CustomError;
+use crate::services::auth_service::generate_tokens;
 use crate::{
     AppState,
     dtos::{auth_dto, general_res_dto::GeneralResDto},
@@ -50,7 +52,7 @@ pub async fn register(
 pub async fn login(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<auth_dto::LoginReqDto>,
-) -> Result<Json<GeneralResDto>, CustomError> {
+) -> Result<Json<AuthResDto>, CustomError> {
     if payload.email.is_empty() || !payload.email.contains("@") || payload.password.len() < 8 {
         return Err(CustomError::MissingCredentials);
     }
@@ -59,11 +61,14 @@ pub async fn login(
 
     match verify_password(payload.password, user.password) {
         Ok(_) => {
-            println!("User {} has logged in", user.email);
-            Ok(Json(GeneralResDto {
-            message: "Ok".to_string(),
-            status_code: 201,
-        }))},
+            tracing::info!("User {} has logged in", user.email);
+
+            let tokens = generate_tokens(user.id.to_string()).map_err(|_| CustomError::TokenCreation)?;
+
+            // implement storing refresh token to db
+
+            Ok(Json(tokens))
+        },
         Err(_) => Err(CustomError::WrongCredentials)
     }
 }

@@ -21,7 +21,7 @@ pub struct AuthResDto {
 }
 
 impl AuthResDto {
-    fn new(access_token: String, refresh_token: String) -> Self {
+    pub fn new(access_token: String, refresh_token: String) -> Self {
         Self {
             access_token,
             token_type: "Bearer".to_string(),
