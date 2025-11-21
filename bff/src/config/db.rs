@@ -6,6 +6,7 @@ use mongodb::{
 };
 use std::env;
 
+use crate::models::token::Token;
 use crate::models::user::User;
 
 pub async fn connect_db() -> Result<Database, Error> {
@@ -31,9 +32,17 @@ pub async fn connect_db() -> Result<Database, Error> {
         .keys(doc! { "email": 1})
         .options(email_index_opts)
         .build();
+    let user_idx = users_coll.create_index(email_index).await?;
+    println!("Created index:\n{}", user_idx.index_name);
 
-    let idx = users_coll.create_index(email_index).await?;
-    println!("Created index:\n{}", idx.index_name);
+    let tokens_coll: Collection<Token> = db.collection("tokens");
+    let token_index_opts = IndexOptions::builder().unique(true).build();
+    let token_index = IndexModel::builder()
+        .keys(doc! { "token": 1})
+        .options(token_index_opts)
+        .build();
+    let token_idx = tokens_coll.create_index(token_index).await?;
+    println!("Created index:\n{}", token_idx.index_name);
 
     Ok(db)
 }

@@ -11,10 +11,12 @@ mod dtos {
 }
 mod models {
     pub mod user;
+    pub mod token;
 }
 mod services {
     pub mod user_service;
     pub mod auth_service;
+    pub mod token_service;
 }
 mod error;
 mod utils;

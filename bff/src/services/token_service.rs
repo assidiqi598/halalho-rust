@@ -1,0 +1,37 @@
+use mongodb::{Database, error::{ErrorKind, WriteFailure}};
+
+use crate::{error::CustomError, models::token::NewToken};
+
+pub struct TokenService {
+    pub db: Database
+}
+
+impl TokenService {
+    pub fn new(db: Database) -> Self {
+        Self { db }
+    }
+
+    pub async fn create_token(&self, data: &NewToken) -> Result<(), CustomError> {
+        match self
+            .db
+            .collection::<NewToken>("tokens")
+            .insert_one(data)
+            .await
+        {
+            Ok(value) => {
+                tracing::debug!("Created a token with _id: {}", value.inserted_id);
+                Ok(())
+            }
+            Err(error) => {
+                tracing::debug!("Error inserting document: {}", error);
+
+                match error.kind.as_ref() {
+                    ErrorKind::Write(WriteFailure::WriteError(w)) if w.code == 11000 => {
+                        Err(CustomError::DuplicateKey(data.token.clone()))
+                    }
+                    _ => Err(CustomError::MongoError(error)),
+                }
+            }
+        }
+    }
+}
