@@ -10,18 +10,21 @@ mod dtos {
     pub mod general_res_dto;
 }
 mod models {
-    pub mod user;
     pub mod token;
+    pub mod user;
 }
 mod services {
-    pub mod user_service;
     pub mod auth_service;
     pub mod token_service;
+    pub mod user_service;
 }
 mod error;
 mod utils;
 
-use crate::{config::db, services::user_service::UserService};
+use crate::{
+    config::db,
+    services::{auth_service::AuthService, token_service::TokenService, user_service::UserService},
+};
 use axum::http::{
     HeaderValue, Method,
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
@@ -34,6 +37,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 pub struct AppState {
     pub user_service: UserService,
+    pub token_service: TokenService,
+    pub auth_service: AuthService,
 }
 
 #[tokio::main]
@@ -57,9 +62,9 @@ async fn main() {
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE]);
 
     let app = create_router(Arc::new(AppState {
-        user_service: UserService {
-            db
-        },
+        user_service: UserService { db: db.clone() },
+        token_service: TokenService { db },
+        auth_service: AuthService {},
     }))
     .layer(cors);
 

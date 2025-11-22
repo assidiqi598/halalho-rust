@@ -29,3 +29,8 @@ impl AuthResDto {
         }
     }
 }
+
+#[derive(Debug, Deserialize)]
+pub struct LogoutDto {
+    pub refresh_token: String
+}

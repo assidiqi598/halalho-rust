@@ -1,6 +1,6 @@
 use mongodb::{Database, error::{ErrorKind, WriteFailure}};
-
-use crate::{error::CustomError, models::token::NewToken};
+use bson::doc;
+use crate::{error::CustomError, models::token::{NewToken, Token}};
 
 pub struct TokenService {
     pub db: Database
@@ -31,6 +31,19 @@ impl TokenService {
                     }
                     _ => Err(CustomError::MongoError(error)),
                 }
+            }
+        }
+    }
+
+    pub async fn revoke_token(&self, token: String) -> Result<(), CustomError> {
+        match self.db.collection::<Token>("tokens").update_one(doc! { "token": token }, doc! { "isRevoked": true }).await {
+            Ok(value) => {
+                tracing::debug!("{:#?} has been revoked", value.upserted_id);
+                Ok(())
+            },
+            Err(error) => {
+                tracing::debug!("Error revoking token: {}", error);
+                Err(CustomError::MongoError(error))
             }
         }
     }

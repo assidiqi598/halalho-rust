@@ -50,7 +50,7 @@ impl UserService {
             .await
         {
             Ok(Some(user)) => Ok(user),
-            Ok(None) => Err(CustomError::NotFoundError(email.to_string())),
+            Ok(None) => Err(CustomError::NotFoundError(email.to_owned())),
             Err(err) => {
                 tracing::debug!("Error finding user: {}", err);
                 Err(CustomError::MongoError(err))

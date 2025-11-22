@@ -2,13 +2,14 @@ use std::sync::Arc;
 
 use crate::dtos::auth_dto::AuthResDto;
 use crate::error::CustomError;
-use crate::services::auth_service::generate_tokens;
+use crate::models::token::NewToken;
+use crate::services::auth_service::Claims;
 use crate::{
     AppState,
     dtos::{auth_dto, general_res_dto::GeneralResDto},
     models::user::NewUser,
-    services::auth_service::{hash_password, verify_password},
 };
+use axum::http::StatusCode;
 use axum::{Json, debug_handler, extract::State};
 use chrono::Utc;
 
@@ -25,7 +26,7 @@ pub async fn register(
         return Err(CustomError::MissingCredentials);
     }
 
-    let password_hash = match hash_password(payload.password) {
+    let password_hash = match state.auth_service.hash_password(payload.password) {
         Ok(value) => value,
         Err(_) => return Err(CustomError::HashError),
     };
@@ -45,7 +46,7 @@ pub async fn register(
 
     Ok(Json(GeneralResDto {
         message: "Ok".to_string(),
-        status_code: 201,
+        status_code: StatusCode::CREATED.as_u16(),
     }))
 }
 
@@ -59,20 +60,46 @@ pub async fn login(
 
     let user = state.user_service.get_user_by_email(&payload.email).await?;
 
-    match verify_password(payload.password, user.password) {
+    match state
+        .auth_service
+        .verify_password(payload.password, user.password)
+    {
         Ok(_) => {
             tracing::info!("User {} has logged in", user.email);
 
-            let tokens = generate_tokens(user.id.to_string()).map_err(|_| CustomError::TokenCreation)?;
+            let tokens = state
+                .auth_service
+                .generate_tokens(user.id.to_string())
+                .map_err(|_| CustomError::TokenCreation)?;
 
-            // implement storing refresh token to db
+            let new_refresh_token = NewToken {
+                userId: user.id,
+                token: tokens.refresh_token.clone(),
+                isRevoked: false,
+                createdAt: Utc::now(),
+                updatedAt: Utc::now(),
+            };
+
+            state.token_service.create_token(&new_refresh_token).await?;
 
             Ok(Json(tokens))
-        },
-        Err(_) => Err(CustomError::WrongCredentials)
+        }
+        Err(_) => Err(CustomError::WrongCredentials),
     }
 }
 
-pub async fn logout() {
-    // Implement logout
+pub async fn logout(
+    _: Claims,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<auth_dto::LogoutDto>,
+) -> Result<Json<GeneralResDto>, CustomError> {
+    state
+        .token_service
+        .revoke_token(payload.refresh_token)
+        .await?;
+
+    Ok(Json(GeneralResDto {
+        message: "Ok".to_string(),
+        status_code: StatusCode::CREATED.as_u16(),
+    }))
 }

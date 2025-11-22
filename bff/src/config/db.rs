@@ -5,9 +5,11 @@ use mongodb::{
     options::{ClientOptions, IndexOptions, ServerApi, ServerApiVersion},
 };
 use std::env;
+use std::time::Duration;
 
 use crate::models::token::Token;
 use crate::models::user::User;
+use crate::services::auth_service::REFRESH_EXP_DAYS;
 
 pub async fn connect_db() -> Result<Database, Error> {
     let uri = env::var("MONGO_URI").expect("MONGO_URI is not set in env");
@@ -33,7 +35,7 @@ pub async fn connect_db() -> Result<Database, Error> {
         .options(email_index_opts)
         .build();
     let user_idx = users_coll.create_index(email_index).await?;
-    println!("Created index:\n{}", user_idx.index_name);
+    println!("Created unique index '{}' for users", user_idx.index_name);
 
     let tokens_coll: Collection<Token> = db.collection("tokens");
     let token_index_opts = IndexOptions::builder().unique(true).build();
@@ -42,7 +44,16 @@ pub async fn connect_db() -> Result<Database, Error> {
         .options(token_index_opts)
         .build();
     let token_idx = tokens_coll.create_index(token_index).await?;
-    println!("Created index:\n{}", token_idx.index_name);
+    println!("Created unique index '{}' for tokens", token_idx.index_name);
+
+    let ttl_seconds = REFRESH_EXP_DAYS * 24 * 3600;
+    let token_ttl_index_opts = IndexOptions::builder().expire_after(Some(Duration::from_secs(ttl_seconds as u64))).build();
+    let token_ttl_index = IndexModel::builder()
+        .keys(doc! { "createdAt": 1})
+        .options(token_ttl_index_opts)
+        .build();
+    let token_ttl_idx = tokens_coll.create_index(token_ttl_index).await?;
+    println!("Created ttl index '{}' for tokens", token_ttl_idx.index_name);
 
     Ok(db)
 }

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::{env, fmt::Display, sync::LazyLock};
 
 const ACCESS_EXP_MINUTES: u32 = 15;
-const REFRESH_EXP_DAYS: u32 = 7;
+pub const REFRESH_EXP_DAYS: u32 = 7;
 
 pub struct Keys {
     encoding: EncodingKey,
@@ -76,42 +76,46 @@ pub struct RefreshClaims {
     jti: String,
 }
 
-pub fn hash_password(password: String) -> Result<String, Error> {
-    let password_as_bytes = password.as_bytes();
-    let salt = SaltString::generate(&mut OsRng);
+pub struct AuthService {}
 
-    let argon2 = Argon2::default();
+impl AuthService {
+    pub fn hash_password(&self, password: String) -> Result<String, Error> {
+        let password_as_bytes = password.as_bytes();
+        let salt = SaltString::generate(&mut OsRng);
 
-    let password_hash = argon2.hash_password(password_as_bytes, &salt)?.to_string();
+        let argon2 = Argon2::default();
 
-    Ok(password_hash)
-}
+        let password_hash = argon2.hash_password(password_as_bytes, &salt)?.to_string();
 
-pub fn verify_password(password: String, password_hash: String) -> Result<(), Error> {
-    let password_as_bytes = password.as_bytes();
+        Ok(password_hash)
+    }
 
-    let parsed_hash = PasswordHash::new(&password_hash)?;
+    pub fn verify_password(&self, password: String, password_hash: String) -> Result<(), Error> {
+        let password_as_bytes = password.as_bytes();
 
-    Argon2::default().verify_password(password_as_bytes, &parsed_hash)
-}
+        let parsed_hash = PasswordHash::new(&password_hash)?;
 
-pub fn generate_tokens(user_id: String) -> Result<AuthResDto, CustomError> {
-    let claims = Claims {
-        sub: user_id.clone(),
-        exp: now_epoch() + (ACCESS_EXP_MINUTES * 60) as usize,
-    };
+        Argon2::default().verify_password(password_as_bytes, &parsed_hash)
+    }
 
-    let refresh_claims = RefreshClaims {
-        sub: user_id,
-        exp: now_epoch() + (REFRESH_EXP_DAYS * 24 * 3600) as usize,
-        jti: uuid::Uuid::new().to_string(),
-    };
+    pub fn generate_tokens(&self, user_id: String) -> Result<AuthResDto, CustomError> {
+        let claims = Claims {
+            sub: user_id.clone(),
+            exp: now_epoch() + (ACCESS_EXP_MINUTES * 60) as usize,
+        };
 
-    let access_token = encode(&Header::default(), &claims, &KEYS.encoding)
-        .map_err(|_| CustomError::TokenCreation)?;
+        let refresh_claims = RefreshClaims {
+            sub: user_id,
+            exp: now_epoch() + (REFRESH_EXP_DAYS * 24 * 3600) as usize,
+            jti: uuid::Uuid::new().to_string(),
+        };
 
-    let refresh_token = encode(&Header::default(), &refresh_claims, &KEYS.encoding)
-        .map_err(|_| CustomError::TokenCreation)?;
+        let access_token = encode(&Header::default(), &claims, &KEYS.encoding)
+            .map_err(|_| CustomError::TokenCreation)?;
 
-    Ok(AuthResDto::new(access_token, refresh_token))
+        let refresh_token = encode(&Header::default(), &refresh_claims, &KEYS.encoding)
+            .map_err(|_| CustomError::TokenCreation)?;
+
+        Ok(AuthResDto::new(access_token, refresh_token))
+    }
 }
