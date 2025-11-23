@@ -1,8 +1,10 @@
-use chrono::prelude::*;
-use mongodb::bson::{oid::ObjectId};
+use bson::{oid::ObjectId, serde_helpers::datetime::FromChrono04DateTime};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 
 #[allow(non_snake_case)]
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Token {
     #[serde(rename = "_id")]
@@ -10,23 +12,21 @@ pub struct Token {
     pub userId: ObjectId,
     pub token: String,
     pub isRevoked: bool,
-    #[serde(
-      serialize_with = "bson",
-      deserialize_with = "bson::serde_helpers::datetime::FromChrono04DateTime::deserialize"
-    )]
+    #[serde_as(as = "FromChrono04DateTime")]
     pub createdAt: DateTime<Utc>,
-    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
+    #[serde_as(as = "FromChrono04DateTime")]
     pub updatedAt: DateTime<Utc>,
 }
 
 #[allow(non_snake_case)]
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NewToken {
     pub userId: ObjectId,
     pub token: String,
     pub isRevoked: bool,
-    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
+    #[serde_as(as = "FromChrono04DateTime")]
     pub createdAt: DateTime<Utc>,
-    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
+    #[serde_as(as = "FromChrono04DateTime")]
     pub updatedAt: DateTime<Utc>,
 }

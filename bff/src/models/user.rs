@@ -1,9 +1,10 @@
-use chrono::prelude::*;
-use mongodb::bson::{self, oid::ObjectId};
+use bson::{oid::ObjectId, serde_helpers::datetime::FromChrono04DateTime};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
+use serde_with::serde_as;
 
 #[allow(non_snake_case)]
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct User {
     #[serde(rename = "_id")]
@@ -11,20 +12,27 @@ pub struct User {
     pub username: String,
     pub email: String,
     pub password: String,
-    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
+    pub isEmailVerified: bool,
+    #[serde_as(as = "FromChrono04DateTime")]
+    pub lastLoginAt: DateTime<Utc>,
+    #[serde_as(as = "FromChrono04DateTime")]
     pub createdAt: DateTime<Utc>,
-    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
+    #[serde_as(as = "FromChrono04DateTime")]
     pub updatedAt: DateTime<Utc>,
 }
 
 #[allow(non_snake_case)]
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NewUser {
     pub username: String,
     pub email: String,
     pub password: String,
-    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
+    pub isEmailVerified: bool,
+    #[serde_as(as = "FromChrono04DateTime")]
+    pub lastLoginAt: DateTime<Utc>,
+    #[serde_as(as = "FromChrono04DateTime")]
     pub createdAt: DateTime<Utc>,
-    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
+    #[serde_as(as = "FromChrono04DateTime")]
     pub updatedAt: DateTime<Utc>,
 }

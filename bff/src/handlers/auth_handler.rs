@@ -11,13 +11,14 @@ use crate::{
 };
 use axum::http::StatusCode;
 use axum::{Json, debug_handler, extract::State};
+use bson::oid::ObjectId;
 use chrono::Utc;
 
 #[debug_handler]
 pub async fn register(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<auth_dto::RegisterReqDto>,
-) -> Result<Json<GeneralResDto>, CustomError> {
+) -> Result<Json<AuthResDto>, CustomError> {
     if payload.email.is_empty()
         || !payload.email.contains("@")
         || payload.username.len() < 5
@@ -38,16 +39,32 @@ pub async fn register(
         email: payload.email.to_lowercase(),
         username: payload.username,
         password: password_hash,
+        isEmailVerified: false,
+        lastLoginAt: Utc::now(),
         createdAt: Utc::now(),
         updatedAt: Utc::now(),
     };
 
-    state.user_service.create_user(&user).await?;
+    let user_id = state.user_service.create_user(&user).await?;
 
-    Ok(Json(GeneralResDto {
-        message: "Ok".to_string(),
-        status_code: StatusCode::CREATED.as_u16(),
-    }))
+    let tokens = state
+        .auth_service
+        .generate_tokens(&user_id.to_hex())
+        .map_err(|_| CustomError::TokenCreation)?;
+
+    let new_refresh_token = NewToken {
+        userId: ObjectId::parse_str(&user_id.to_hex()).map_err(|_| CustomError::InvalidIDError(user_id.to_hex()))?,
+        token: tokens.refresh_token.clone(),
+        isRevoked: false,
+        createdAt: Utc::now(),
+        updatedAt: Utc::now(),
+    };
+
+    state.token_service.create_token(&new_refresh_token).await?;
+
+    tracing::info!("User {} has logged in after registration", user.email);
+
+    Ok(Json(tokens))
 }
 
 pub async fn login(
@@ -69,7 +86,7 @@ pub async fn login(
 
             let tokens = state
                 .auth_service
-                .generate_tokens(user.id.to_string())
+                .generate_tokens(&user.id.to_string())
                 .map_err(|_| CustomError::TokenCreation)?;
 
             let new_refresh_token = NewToken {

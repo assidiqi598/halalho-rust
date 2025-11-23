@@ -1,8 +1,8 @@
 use mongodb::{
     Database,
     error::{ErrorKind, WriteFailure},
-    bson::doc
 };
+use bson::{doc, oid::ObjectId};
 
 use crate::{
     error::CustomError,
@@ -18,7 +18,7 @@ impl UserService {
         Self { db }
     }
 
-    pub async fn create_user(&self, data: &NewUser) -> Result<(), CustomError> {
+    pub async fn create_user(&self, data: &NewUser) -> Result<ObjectId, CustomError> {
         match self
             .db
             .collection::<NewUser>("users")
@@ -26,8 +26,8 @@ impl UserService {
             .await
         {
             Ok(value) => {
-                tracing::debug!("Created a user with _id: {}", value.inserted_id);
-                Ok(())
+                tracing::debug!("Created a user with _id: {}", &value.inserted_id);
+                Ok(value.inserted_id.as_object_id().unwrap())
             }
             Err(error) => {
                 tracing::debug!("Error inserting document: {}", error);

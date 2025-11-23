@@ -98,14 +98,14 @@ impl AuthService {
         Argon2::default().verify_password(password_as_bytes, &parsed_hash)
     }
 
-    pub fn generate_tokens(&self, user_id: String) -> Result<AuthResDto, CustomError> {
+    pub fn generate_tokens(&self, user_id: &str) -> Result<AuthResDto, CustomError> {
         let claims = Claims {
-            sub: user_id.clone(),
+            sub: user_id.to_owned(),
             exp: now_epoch() + (ACCESS_EXP_MINUTES * 60) as usize,
         };
 
         let refresh_claims = RefreshClaims {
-            sub: user_id,
+            sub: user_id.to_owned(),
             exp: now_epoch() + (REFRESH_EXP_DAYS * 24 * 3600) as usize,
             jti: uuid::Uuid::new().to_string(),
         };
