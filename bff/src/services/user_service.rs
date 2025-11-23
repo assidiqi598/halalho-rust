@@ -1,7 +1,7 @@
-use bson::doc;
 use mongodb::{
     Database,
     error::{ErrorKind, WriteFailure},
+    bson::doc
 };
 
 use crate::{

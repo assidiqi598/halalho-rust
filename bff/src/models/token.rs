@@ -1,6 +1,5 @@
-use bson::serde_helpers::chrono_datetime_as_bson_datetime;
 use chrono::prelude::*;
-use mongodb::bson::{self, oid::ObjectId};
+use mongodb::bson::{oid::ObjectId};
 use serde::{Deserialize, Serialize};
 
 #[allow(non_snake_case)]
@@ -11,9 +10,12 @@ pub struct Token {
     pub userId: ObjectId,
     pub token: String,
     pub isRevoked: bool,
-    #[serde(with = "chrono_datetime_as_bson_datetime")]
+    #[serde(
+      serialize_with = "bson",
+      deserialize_with = "bson::serde_helpers::datetime::FromChrono04DateTime::deserialize"
+    )]
     pub createdAt: DateTime<Utc>,
-    #[serde(with = "chrono_datetime_as_bson_datetime")]
+    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub updatedAt: DateTime<Utc>,
 }
 
@@ -23,8 +25,8 @@ pub struct NewToken {
     pub userId: ObjectId,
     pub token: String,
     pub isRevoked: bool,
-    #[serde(with = "chrono_datetime_as_bson_datetime")]
+    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub createdAt: DateTime<Utc>,
-    #[serde(with = "chrono_datetime_as_bson_datetime")]
+    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub updatedAt: DateTime<Utc>,
 }

@@ -1,5 +1,4 @@
-use mongodb::{Database, error::{ErrorKind, WriteFailure}};
-use bson::doc;
+use mongodb::{Database, error::{ErrorKind, WriteFailure}, bson::doc};
 use crate::{error::CustomError, models::token::{NewToken, Token}};
 
 pub struct TokenService {
