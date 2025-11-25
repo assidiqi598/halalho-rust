@@ -1,5 +1,7 @@
 use axum::{
-    Json, http::StatusCode, response::{IntoResponse, Response}
+    Json,
+    http::StatusCode,
+    response::{IntoResponse, Response},
 };
 use serde_json::json;
 
@@ -21,8 +23,10 @@ pub enum CustomError {
     TokenCreation,
     #[error("Invalid token")]
     InvalidToken,
+    #[error("Token expired")]
+    TokenExpired,
     #[error("Hash error")]
-    HashError
+    HashError,
 }
 
 impl IntoResponse for CustomError {
@@ -38,7 +42,8 @@ impl IntoResponse for CustomError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Token creation error".to_string(),
             ),
-            CustomError::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token".to_string()),
+            CustomError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid token".to_string()),
+            CustomError::TokenExpired => (StatusCode::UNAUTHORIZED, "Token is expired".to_string()),
             CustomError::MongoError(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "MongoDB error".to_string(),

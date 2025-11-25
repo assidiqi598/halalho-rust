@@ -120,3 +120,6 @@ pub async fn logout(
         status_code: StatusCode::CREATED.as_u16(),
     }))
 }
+
+// TODO: implement refresh token
+// TODO: implement password reset

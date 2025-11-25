@@ -11,7 +11,7 @@ use axum_extra::{
     headers::{Authorization, authorization::Bearer},
 };
 use bson::uuid;
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode, errors::ErrorKind};
 use serde::{Deserialize, Serialize};
 use std::{env, fmt::Display, sync::LazyLock};
 
@@ -62,10 +62,13 @@ where
             .await
             .map_err(|_| CustomError::InvalidToken)?;
         // Decode the user data
-        let token_data = decode::<Claims>(bearer.token(), &KEYS.decoding, &Validation::default())
-            .map_err(|_| CustomError::InvalidToken)?;
-
-        Ok(token_data.claims)
+        match decode::<Claims>(bearer.token(), &KEYS.decoding, &Validation::default()) {
+            Ok(value) => Ok(value.claims),
+            Err(err) => match err.kind() {
+                ErrorKind::ExpiredSignature => Err(CustomError::TokenExpired),
+                _ => Err(CustomError::InvalidToken),
+            }
+        }
     }
 }
 
