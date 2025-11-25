@@ -2,6 +2,7 @@ use crate::{
     error::CustomError,
     models::token::{NewToken, Token},
 };
+use chrono::Utc;
 use mongodb::{
     Database,
     bson::doc,
@@ -46,8 +47,8 @@ impl TokenService {
             .db
             .collection::<Token>("tokens")
             .update_one(
-                doc! { "token": token },
-                doc! { "$set": doc! { "isRevoked": true } },
+                doc! { "token": token, "isRevoked": false },
+                doc! { "$set": doc! { "isRevoked": true, "updatedAt": Utc::now() } },
             )
             .await
         {

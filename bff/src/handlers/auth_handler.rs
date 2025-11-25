@@ -9,9 +9,11 @@ use crate::{
     dtos::{auth_dto, general_res_dto::GeneralResDto},
     models::user::NewUser,
 };
-use axum::http::StatusCode;
-use axum::{Json, debug_handler, extract::State};
-use bson::oid::ObjectId;
+use axum::{Json, debug_handler, extract::State, http::StatusCode};
+use axum_extra::{
+    extract::TypedHeader,
+    headers::{Authorization, authorization::Bearer},
+};
 use chrono::Utc;
 
 #[debug_handler]
@@ -47,14 +49,14 @@ pub async fn register(
 
     let user_id = state.user_service.create_user(&user).await?;
 
-    let tokens = state
+    let (tokens, jti) = state
         .auth_service
         .generate_tokens(&user_id.to_hex())
         .map_err(|_| CustomError::TokenCreation)?;
 
     let new_refresh_token = NewToken {
-        userId: ObjectId::parse_str(&user_id.to_hex()).map_err(|_| CustomError::InvalidIDError(user_id.to_hex()))?,
-        token: tokens.refresh_token.clone(),
+        userId: user_id,
+        token: jti,
         isRevoked: false,
         createdAt: Utc::now(),
         updatedAt: Utc::now(),
@@ -84,14 +86,14 @@ pub async fn login(
         Ok(_) => {
             tracing::info!("User {} has logged in", user.email);
 
-            let tokens = state
+            let (tokens, jti) = state
                 .auth_service
                 .generate_tokens(&user.id.to_string())
                 .map_err(|_| CustomError::TokenCreation)?;
 
             let new_refresh_token = NewToken {
                 userId: user.id,
-                token: tokens.refresh_token.clone(),
+                token: jti,
                 isRevoked: false,
                 createdAt: Utc::now(),
                 updatedAt: Utc::now(),
@@ -110,10 +112,21 @@ pub async fn logout(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<auth_dto::LogoutDto>,
 ) -> Result<Json<GeneralResDto>, CustomError> {
-    state
-        .token_service
-        .revoke_token(payload.refresh_token)
-        .await?;
+    if payload.refresh_token.is_empty() {
+        tracing::debug!("No refresh token provided");
+        return Err(CustomError::MissingCredentials);
+    }
+
+    let refresh_claims = state
+        .auth_service
+        .decode_refresh_token(&payload.refresh_token)?;
+
+    if refresh_claims.jti.is_empty() {
+        tracing::debug!("Missing jti");
+        return Err(CustomError::MissingCredentials);
+    }
+
+    state.token_service.revoke_token(refresh_claims.jti).await?;
 
     Ok(Json(GeneralResDto {
         message: "Ok".to_string(),
@@ -121,5 +134,65 @@ pub async fn logout(
     }))
 }
 
-// TODO: implement refresh token
+pub async fn refresh(
+    TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<auth_dto::LogoutDto>,
+) -> Result<Json<AuthResDto>, CustomError> {
+    if bearer.token().is_empty() {
+        tracing::debug!("Missing bearer token");
+        return Err(CustomError::MissingCredentials);
+    }
+
+    if payload.refresh_token.is_empty() {
+        tracing::debug!("Missing refresh token");
+        return Err(CustomError::MissingCredentials);
+    }
+
+    let old_claims = state
+        .auth_service
+        .decode_access_token_without_exp(bearer.token())?;
+
+    let old_refresh_claims = state
+        .auth_service
+        .decode_refresh_token(&payload.refresh_token)?;
+
+    if old_claims.sub != old_refresh_claims.sub {
+        tracing::debug!("subs are different");
+        return Err(CustomError::WrongCredentials);
+    }
+
+    if old_refresh_claims.jti.is_empty() {
+        tracing::debug!("Missing jti");
+        return Err(CustomError::MissingCredentials);
+    }
+
+    state
+        .token_service
+        .revoke_token(old_refresh_claims.jti)
+        .await?;
+
+    let user = state
+        .user_service
+        .get_user_by_id(&old_refresh_claims.sub)
+        .await?;
+
+    let (tokens, jti) = state
+        .auth_service
+        .generate_tokens(&user.id.to_hex())
+        .map_err(|_| CustomError::TokenCreation)?;
+
+    let new_refresh_token = NewToken {
+        userId: user.id,
+        token: jti,
+        isRevoked: false,
+        createdAt: Utc::now(),
+        updatedAt: Utc::now(),
+    };
+
+    state.token_service.create_token(&new_refresh_token).await?;
+
+    Ok(Json(tokens))
+}
+
 // TODO: implement password reset

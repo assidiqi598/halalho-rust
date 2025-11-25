@@ -1,8 +1,8 @@
+use bson::{doc, oid::ObjectId};
 use mongodb::{
     Database,
     error::{ErrorKind, WriteFailure},
 };
-use bson::{doc, oid::ObjectId};
 
 use crate::{
     error::CustomError,
@@ -38,6 +38,25 @@ impl UserService {
                     }
                     _ => Err(CustomError::MongoError(error)),
                 }
+            }
+        }
+    }
+
+    pub async fn get_user_by_id(&self, id: &str) -> Result<User, CustomError> {
+        let user_id =
+            ObjectId::parse_str(id).map_err(|_| CustomError::InvalidIDError(id.to_owned()))?;
+
+        match self
+            .db
+            .collection::<User>("users")
+            .find_one(doc! { "_id": user_id })
+            .await
+        {
+            Ok(Some(user)) => Ok(user),
+            Ok(None) => Err(CustomError::NotFoundError(id.to_owned())),
+            Err(err) => {
+                tracing::debug!("Error finding user: {}", err);
+                Err(CustomError::MongoError(err))
             }
         }
     }
