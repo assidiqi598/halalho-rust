@@ -10,11 +10,8 @@ use crate::{
     models::user::NewUser,
 };
 use axum::{Json, debug_handler, extract::State, http::StatusCode};
-use axum_extra::{
-    extract::TypedHeader,
-    headers::{Authorization, authorization::Bearer},
-};
-use chrono::Utc;
+use chrono::offset::LocalResult;
+use chrono::{TimeZone, Utc};
 
 #[debug_handler]
 pub async fn register(
@@ -49,17 +46,31 @@ pub async fn register(
 
     let user_id = state.user_service.create_user(&user).await?;
 
-    let (tokens, jti) = state
+    let (tokens, jti, exp) = state
         .auth_service
         .generate_tokens(&user_id.to_hex())
         .map_err(|_| CustomError::TokenCreation)?;
+
+    let expires_at = match Utc.timestamp_opt(exp as i64, 0) {
+        LocalResult::Single(dt) => dt,
+        _ => {
+            tracing::error!("Error converting timestamp");
+            return Err(CustomError::TokenCreation);
+        }
+    };
+
+    // let expiresAt = Utc.timestamp_opt(exp as i64, 0).single().ok_or_else(|| {
+    //     tracing::error!("Error converting timestamp");
+    //     CustomError::TokenCreation
+    // })?;
 
     let new_refresh_token = NewToken {
         userId: user_id,
         token: jti,
         isRevoked: false,
         createdAt: Utc::now(),
-        updatedAt: Utc::now(),
+        expiresAt: expires_at,
+        usedAt: None,
     };
 
     state.token_service.create_token(&new_refresh_token).await?;
@@ -86,17 +97,26 @@ pub async fn login(
         Ok(_) => {
             tracing::info!("User {} has logged in", user.email);
 
-            let (tokens, jti) = state
+            let (tokens, jti, exp) = state
                 .auth_service
                 .generate_tokens(&user.id.to_string())
                 .map_err(|_| CustomError::TokenCreation)?;
+
+            let expires_at = match Utc.timestamp_opt(exp as i64, 0) {
+                LocalResult::Single(dt) => dt,
+                _ => {
+                    tracing::error!("Error converting timestamp");
+                    return Err(CustomError::TokenCreation);
+                }
+            };
 
             let new_refresh_token = NewToken {
                 userId: user.id,
                 token: jti,
                 isRevoked: false,
                 createdAt: Utc::now(),
-                updatedAt: Utc::now(),
+                expiresAt: expires_at,
+                usedAt: None,
             };
 
             state.token_service.create_token(&new_refresh_token).await?;
@@ -108,7 +128,7 @@ pub async fn login(
 }
 
 pub async fn logout(
-    _: Claims,
+    claims: Claims,
     State(state): State<Arc<AppState>>,
     Json(payload): Json<auth_dto::LogoutDto>,
 ) -> Result<Json<GeneralResDto>, CustomError> {
@@ -126,68 +146,96 @@ pub async fn logout(
         return Err(CustomError::MissingCredentials);
     }
 
-    state.token_service.revoke_token(refresh_claims.jti).await?;
+    if refresh_claims.sub != claims.sub {
+        return Err(CustomError::WrongCredentials);
+    }
+
+    state
+        .token_service
+        .revoke_token(&refresh_claims.jti)
+        .await?;
 
     Ok(Json(GeneralResDto {
         message: "Ok".to_string(),
-        status_code: StatusCode::CREATED.as_u16(),
+        status_code: StatusCode::OK.as_u16(),
     }))
 }
 
 pub async fn refresh(
-    TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
     State(state): State<Arc<AppState>>,
     Json(payload): Json<auth_dto::LogoutDto>,
 ) -> Result<Json<AuthResDto>, CustomError> {
-    if bearer.token().is_empty() {
-        tracing::debug!("Missing bearer token");
-        return Err(CustomError::MissingCredentials);
-    }
-
     if payload.refresh_token.is_empty() {
         tracing::debug!("Missing refresh token");
         return Err(CustomError::MissingCredentials);
     }
 
-    let old_claims = state
-        .auth_service
-        .decode_access_token_without_exp(bearer.token())?;
-
-    let old_refresh_claims = state
+    let current_refresh_claims = state
         .auth_service
         .decode_refresh_token(&payload.refresh_token)?;
 
-    if old_claims.sub != old_refresh_claims.sub {
-        tracing::debug!("subs are different");
-        return Err(CustomError::WrongCredentials);
-    }
-
-    if old_refresh_claims.jti.is_empty() {
+    if current_refresh_claims.jti.is_empty() {
         tracing::debug!("Missing jti");
         return Err(CustomError::MissingCredentials);
     }
 
-    state
+    let current_token = state
         .token_service
-        .revoke_token(old_refresh_claims.jti)
+        .get_token_by_jti(&current_refresh_claims.jti)
         .await?;
+
+    if current_token.expiresAt < Utc::now() {
+        return Err(CustomError::TokenExpired);
+    }
+
+    let mut should_revoke = true;
+
+    if current_token.isRevoked {
+        match current_token.usedAt {
+            Some(used_at) if (Utc::now() - used_at).num_seconds() > 90 => {
+                return Err(CustomError::TokenExpired);
+            }
+            Some(used_at) if (Utc::now() - used_at).num_seconds() < 90 => {
+                // don't revoke again
+                should_revoke = false;
+            }
+            None => return Err(CustomError::InvalidToken),
+            _ => return Err(CustomError::InvalidToken),
+        }
+    }
+
+    if should_revoke {
+        state
+            .token_service
+            .revoke_token(&current_refresh_claims.jti)
+            .await?;
+    }
 
     let user = state
         .user_service
-        .get_user_by_id(&old_refresh_claims.sub)
+        .get_user_by_id(&current_refresh_claims.sub)
         .await?;
 
-    let (tokens, jti) = state
+    let (tokens, jti, exp) = state
         .auth_service
         .generate_tokens(&user.id.to_hex())
         .map_err(|_| CustomError::TokenCreation)?;
+
+    let expires_at = match Utc.timestamp_opt(exp as i64, 0) {
+        LocalResult::Single(dt) => dt,
+        _ => {
+            tracing::error!("Error converting timestamp");
+            return Err(CustomError::TokenCreation);
+        }
+    };
 
     let new_refresh_token = NewToken {
         userId: user.id,
         token: jti,
         isRevoked: false,
         createdAt: Utc::now(),
-        updatedAt: Utc::now(),
+        expiresAt: expires_at,
+        usedAt: None,
     };
 
     state.token_service.create_token(&new_refresh_token).await?;

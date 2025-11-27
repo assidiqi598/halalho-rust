@@ -17,8 +17,8 @@ use jsonwebtoken::{
 use serde::{Deserialize, Serialize};
 use std::{env, fmt::Display, sync::LazyLock};
 
-const ACCESS_EXP_MINUTES: u32 = 15;
-pub const REFRESH_EXP_DAYS: u32 = 7;
+const ACCESS_EXP_MINUTES: u32 = 15 * 60;
+pub const REFRESH_EXP_DAYS: u32 = 7 * 24 * 3600;
 
 pub struct Keys {
     encoding: EncodingKey,
@@ -68,7 +68,7 @@ where
             Ok(value) => {
                 tracing::info!("Req from {} has just arrived", value.claims.sub);
                 Ok(value.claims)
-            },
+            }
             Err(err) => match err.kind() {
                 ErrorKind::ExpiredSignature => Err(CustomError::TokenExpired),
                 _ => Err(CustomError::InvalidToken),
@@ -106,17 +106,18 @@ impl AuthService {
         Argon2::default().verify_password(password_as_bytes, &parsed_hash)
     }
 
-    pub fn generate_tokens(&self, user_id: &str) -> Result<(AuthResDto, String), CustomError> {
+    pub fn generate_tokens(
+        &self,
+        user_id: &str,
+    ) -> Result<(AuthResDto, String, usize), CustomError> {
         let claims = Claims {
             sub: user_id.to_owned(),
-            exp: now_epoch() + (ACCESS_EXP_MINUTES * 60) as usize,
-            // exp: now_epoch() + (ACCESS_EXP_MINUTES) as usize,
+            exp: now_epoch() + ACCESS_EXP_MINUTES as usize,
         };
 
         let refresh_claims = RefreshClaims {
             sub: user_id.to_owned(),
-            exp: now_epoch() + (REFRESH_EXP_DAYS * 24 * 3600) as usize,
-            // exp: now_epoch() + (REFRESH_EXP_DAYS) as usize,
+            exp: now_epoch() + REFRESH_EXP_DAYS as usize,
             jti: uuid::Uuid::new().to_string(),
         };
 
@@ -129,6 +130,7 @@ impl AuthService {
         Ok((
             AuthResDto::new(access_token, refresh_token),
             refresh_claims.jti,
+            refresh_claims.exp,
         ))
     }
 
@@ -142,14 +144,15 @@ impl AuthService {
         }
     }
 
-    pub fn decode_access_token_without_exp(&self, access_token: &str) -> Result<Claims, CustomError> {
+    pub fn decode_access_token_without_exp(
+        &self,
+        access_token: &str,
+    ) -> Result<Claims, CustomError> {
         let mut validation = Validation::default();
         validation.validate_exp = false;
 
         match decode::<Claims>(access_token, &KEYS.decoding, &validation) {
-            Ok(value) => {
-                Ok(value.claims)
-            },
+            Ok(value) => Ok(value.claims),
             Err(err) => match err.kind() {
                 ErrorKind::ExpiredSignature => Err(CustomError::TokenExpired),
                 _ => Err(CustomError::InvalidToken),

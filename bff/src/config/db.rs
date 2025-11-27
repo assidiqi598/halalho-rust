@@ -46,14 +46,18 @@ pub async fn connect_db() -> Result<Database, Error> {
     let token_idx = tokens_coll.create_index(token_index).await?;
     println!("Created unique index '{}' for tokens", token_idx.index_name);
 
-    let ttl_seconds = REFRESH_EXP_DAYS * 24 * 3600;
-    let token_ttl_index_opts = IndexOptions::builder().expire_after(Some(Duration::from_secs(ttl_seconds as u64))).build();
+    let token_ttl_index_opts = IndexOptions::builder()
+        .expire_after(Some(Duration::from_secs(REFRESH_EXP_DAYS as u64)))
+        .build();
     let token_ttl_index = IndexModel::builder()
         .keys(doc! { "createdAt": 1})
         .options(token_ttl_index_opts)
         .build();
     let token_ttl_idx = tokens_coll.create_index(token_ttl_index).await?;
-    println!("Created ttl index '{}' for tokens", token_ttl_idx.index_name);
+    println!(
+        "Created ttl index '{}' for tokens",
+        token_ttl_idx.index_name
+    );
 
     Ok(db)
 }

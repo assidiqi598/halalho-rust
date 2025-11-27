@@ -12,10 +12,16 @@ pub struct Token {
     pub userId: ObjectId,
     pub token: String,
     pub isRevoked: bool,
+
     #[serde_as(as = "FromChrono04DateTime")]
     pub createdAt: DateTime<Utc>,
+
     #[serde_as(as = "FromChrono04DateTime")]
-    pub updatedAt: DateTime<Utc>,
+    pub expiresAt: DateTime<Utc>,
+
+    #[serde_as(as = "Option<FromChrono04DateTime>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usedAt: Option<DateTime<Utc>>,
 }
 
 #[allow(non_snake_case)]
@@ -25,8 +31,14 @@ pub struct NewToken {
     pub userId: ObjectId,
     pub token: String,
     pub isRevoked: bool,
+
     #[serde_as(as = "FromChrono04DateTime")]
     pub createdAt: DateTime<Utc>,
+
     #[serde_as(as = "FromChrono04DateTime")]
-    pub updatedAt: DateTime<Utc>,
+    pub expiresAt: DateTime<Utc>,
+
+    #[serde_as(as = "Option<FromChrono04DateTime>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usedAt: Option<DateTime<Utc>>,
 }

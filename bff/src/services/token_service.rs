@@ -18,6 +18,22 @@ impl TokenService {
         Self { db }
     }
 
+    pub async fn get_token_by_jti(&self, data: &str) -> Result<Token, CustomError> {
+        match self
+            .db
+            .collection::<Token>("tokens")
+            .find_one(doc! { "token": data })
+            .await
+        {
+            Ok(Some(token)) => Ok(token),
+            Ok(None) => Err(CustomError::NotFoundError(data.to_owned())),
+            Err(err) => {
+                tracing::debug!("Error finding token: {}", err);
+                Err(CustomError::MongoError(err))
+            }
+        }
+    }
+
     pub async fn create_token(&self, data: &NewToken) -> Result<(), CustomError> {
         match self
             .db
@@ -42,13 +58,13 @@ impl TokenService {
         }
     }
 
-    pub async fn revoke_token(&self, token: String) -> Result<(), CustomError> {
+    pub async fn revoke_token(&self, token: &str) -> Result<(), CustomError> {
         match self
             .db
             .collection::<Token>("tokens")
             .update_one(
                 doc! { "token": token, "isRevoked": false },
-                doc! { "$set": doc! { "isRevoked": true, "updatedAt": Utc::now() } },
+                doc! { "$set": doc! { "isRevoked": true, "usedAt": Utc::now() } },
             )
             .await
         {
