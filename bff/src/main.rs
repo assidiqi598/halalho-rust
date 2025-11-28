@@ -1,5 +1,6 @@
 mod config {
     pub mod db;
+    pub mod r2;
 }
 mod routes;
 mod handlers {
@@ -22,7 +23,7 @@ mod error;
 mod utils;
 
 use crate::{
-    config::db,
+    config::{db, r2},
     services::{auth_service::AuthService, token_service::TokenService, user_service::UserService},
 };
 use axum::http::{
@@ -53,7 +54,10 @@ async fn main() {
         .init();
 
     let db = db::connect_db().await.unwrap();
-    println!("✅ Connected to MongoDB");
+    tracing::debug!("✅ Connected to MongoDB");
+
+    let r2_client = r2::connect_r2().await.unwrap();
+    tracing::debug!("✅ Connected to R2");
 
     let cors = CorsLayer::new()
         .allow_origin("http://localhost".parse::<HeaderValue>().unwrap())

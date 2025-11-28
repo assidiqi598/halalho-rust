@@ -37,3 +37,6 @@ pubspec.lock
 # Coverage / test outputs
 coverage/
 **/coverage/
+
+# Email templates
+/email-templates

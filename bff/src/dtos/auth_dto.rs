@@ -34,3 +34,9 @@ impl AuthResDto {
 pub struct LogoutDto {
     pub refresh_token: String
 }
+
+#[derive(Debug, Deserialize)]
+pub struct VerifyEmailDto {
+    pub user_id: String,
+    pub token: String
+}

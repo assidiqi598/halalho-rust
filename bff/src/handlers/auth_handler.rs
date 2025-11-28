@@ -243,4 +243,6 @@ pub async fn refresh(
     Ok(Json(tokens))
 }
 
+// pub async verify_email()
+
 // TODO: implement password reset
