@@ -1,8 +1,10 @@
 use aws_sdk_s3 as s3;
-use std::env::var;
+use std::{env::var, sync::LazyLock};
+
+pub static BUCKET: LazyLock<String> =
+    LazyLock::new(|| var("R2_BUCKET_NAME").expect("R2_BUCKET_NAME is not set in env"));
 
 pub async fn connect_r2() -> Result<s3::Client, s3::Error> {
-    let bucket_name = var("R2_BUCKET_NAME").expect("R2_BUCKET_NAME is not set in env");
     let account_id = var("R2_ACCOUNT_ID").expect("R2_ACCOUNT_ID is not set in env");
     let access_key_id = var("R2_ACCESS_KEY_ID").expect("R2_ACCESS_KEY_ID is not set in env");
     let access_key_secret =
