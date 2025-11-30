@@ -12,7 +12,7 @@ impl StorageService {
         Self { r2_client: client }
     }
 
-    pub async fn get_object(&self, key: &str) -> Result<Bytes, Box<dyn std::error::Error>> {
+    pub async fn get_object(&self, key: &str) -> Result<(Bytes, Option<String>), Box<dyn std::error::Error>> {
         let resp = self
             .r2_client
             .get_object()
@@ -21,7 +21,9 @@ impl StorageService {
             .send()
             .await?;
 
+        let content_type = resp.content_type().map(|s| s.to_string());
         let data = resp.body.collect().await?;
-        Ok(data.into_bytes())
+
+        Ok((data.into_bytes(), content_type))
     }
 }

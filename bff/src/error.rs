@@ -27,6 +27,8 @@ pub enum CustomError {
     TokenExpired,
     #[error("Hash error")]
     HashError,
+    #[error("Email Template Error")]
+    EmailTemplateError,
 }
 
 impl IntoResponse for CustomError {
@@ -60,6 +62,9 @@ impl IntoResponse for CustomError {
             ),
             CustomError::HashError => {
                 (StatusCode::NOT_ACCEPTABLE, "Error when hashing".to_string())
+            }
+            CustomError::EmailTemplateError => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Error when preparing email template".to_string())
             }
         };
 

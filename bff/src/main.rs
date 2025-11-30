@@ -19,6 +19,7 @@ mod services {
     pub mod storage_service;
     pub mod token_service;
     pub mod user_service;
+    pub mod email_service;
 }
 mod error;
 mod utils;
