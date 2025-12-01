@@ -1,9 +1,8 @@
-use std::sync::Arc;
-
 use crate::dtos::auth_dto::AuthResDto;
 use crate::error::CustomError;
 use crate::models::token::NewToken;
-use crate::services::auth_service::Claims;
+use crate::services::auth_service::{Claims, EMAIL_VERIFICATION_EXP_MINUTES};
+use crate::services::email_service::{EmailTemplateValues, VerifyEmail};
 use crate::{
     AppState,
     dtos::{auth_dto, general_res_dto::GeneralResDto},
@@ -12,6 +11,7 @@ use crate::{
 use axum::{Json, debug_handler, extract::State, http::StatusCode};
 use chrono::offset::LocalResult;
 use chrono::{TimeZone, Utc};
+use std::{env::var, sync::Arc};
 
 #[debug_handler]
 pub async fn register(
@@ -34,6 +34,7 @@ pub async fn register(
     // let password_hash = hash_password(payload.password)
     // .map_err(|_| CustomError::HashError)?;
 
+    // Create user in DB
     let user = NewUser {
         email: payload.email.to_lowercase(),
         username: payload.username,
@@ -46,6 +47,33 @@ pub async fn register(
 
     let user_id = state.user_service.create_user(&user).await?;
 
+    // Send email to verify email address
+    let (object_bytes, ext) = state
+        .storage_service
+        .get_object("halalho/email-templates/verify-email.html")
+        .await
+        .map_err(|_| CustomError::R2Error)?;
+
+    let object_extension = match ext {
+        Some(v) => v,
+        None => return Err(CustomError::R2Error),
+    };
+
+    let values = EmailTemplateValues::VerifyEmailValues(VerifyEmail {
+        app_name: var("APP_NAME").expect("APP_NAME missing"),
+        username: user.username,
+        verification_url: "http://localhost".to_owned(),
+        expiry_minutes: EMAIL_VERIFICATION_EXP_MINUTES.to_string(),
+        support_email: "support@halalho.com".to_owned(),
+        company_address: "teststr.32 55555 pwt".to_owned(),
+        unsubscribe_url: "http://localhost/unsubscribe".to_owned(),
+    });
+
+    let email = state
+        .email_service
+        .prepare_template(&object_bytes, &object_extension, values);
+
+    // Generate tokens for authentication
     let (tokens, jti, exp) = state
         .auth_service
         .generate_tokens(&user_id.to_hex())
@@ -243,6 +271,14 @@ pub async fn refresh(
     Ok(Json(tokens))
 }
 
-// pub async verify_email()
+pub async fn verify_email(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<auth_dto::VerifyEmailDto>,
+) -> Result<Json<GeneralResDto>, CustomError> {
+    Ok(Json(GeneralResDto {
+        status_code: 200,
+        message: "Ok".to_owned(),
+    }))
+}
 
 // TODO: implement password reset

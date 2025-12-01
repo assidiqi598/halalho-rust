@@ -29,6 +29,8 @@ pub enum CustomError {
     HashError,
     #[error("Email Template Error")]
     EmailTemplateError,
+    #[error("R2 error")]
+    R2Error,
 }
 
 impl IntoResponse for CustomError {
@@ -63,9 +65,14 @@ impl IntoResponse for CustomError {
             CustomError::HashError => {
                 (StatusCode::NOT_ACCEPTABLE, "Error when hashing".to_string())
             }
-            CustomError::EmailTemplateError => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Error when preparing email template".to_string())
-            }
+            CustomError::EmailTemplateError => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Error when preparing email template".to_string(),
+            ),
+            CustomError::R2Error => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Object storage error".to_owned(),
+            ),
         };
 
         let body = Json(json!({

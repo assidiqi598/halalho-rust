@@ -19,6 +19,7 @@ use std::{env, fmt::Display, sync::LazyLock};
 
 const ACCESS_EXP_MINUTES: u32 = 15 * 60;
 pub const REFRESH_EXP_DAYS: u32 = 7 * 24 * 3600;
+pub const EMAIL_VERIFICATION_EXP_MINUTES: u32 = 3600;
 
 pub struct Keys {
     encoding: EncodingKey,

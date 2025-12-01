@@ -16,10 +16,10 @@ mod models {
 }
 mod services {
     pub mod auth_service;
+    pub mod email_service;
     pub mod storage_service;
     pub mod token_service;
     pub mod user_service;
-    pub mod email_service;
 }
 mod error;
 mod utils;
@@ -27,8 +27,8 @@ mod utils;
 use crate::{
     config::{db, r2},
     services::{
-        auth_service::AuthService, storage_service::StorageService, token_service::TokenService,
-        user_service::UserService,
+        auth_service::AuthService, email_service::EmailService, storage_service::StorageService,
+        token_service::TokenService, user_service::UserService,
     },
 };
 use axum::http::{
@@ -46,6 +46,7 @@ pub struct AppState {
     pub token_service: TokenService,
     pub auth_service: AuthService,
     pub storage_service: StorageService,
+    pub email_service: EmailService,
 }
 
 #[tokio::main]
@@ -76,6 +77,7 @@ async fn main() {
         token_service: TokenService { db },
         auth_service: AuthService {},
         storage_service: StorageService { r2_client },
+        email_service: EmailService {},
     }))
     .layer(cors);
 
