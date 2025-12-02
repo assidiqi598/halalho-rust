@@ -31,6 +31,10 @@ pub enum CustomError {
     EmailTemplateError,
     #[error("R2 error")]
     R2Error,
+    #[error("Reqwest error")]
+    ReqwestError(#[from] reqwest::Error),
+    #[error("Error sending email")]
+    SendEmailError
 }
 
 impl IntoResponse for CustomError {
@@ -73,6 +77,14 @@ impl IntoResponse for CustomError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Object storage error".to_owned(),
             ),
+            CustomError::ReqwestError(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Error sending request".to_owned()
+            ),
+            CustomError::SendEmailError => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Error sending email".to_owned()
+            )
         };
 
         let body = Json(json!({

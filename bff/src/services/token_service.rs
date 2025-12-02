@@ -1,5 +1,5 @@
 use crate::{
-    error::CustomError,
+    types::error::CustomError,
     models::token::{NewToken, Token},
 };
 use chrono::Utc;

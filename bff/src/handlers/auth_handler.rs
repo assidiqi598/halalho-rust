@@ -1,8 +1,10 @@
 use crate::dtos::auth_dto::AuthResDto;
-use crate::error::CustomError;
 use crate::models::token::NewToken;
-use crate::services::auth_service::{Claims, EMAIL_VERIFICATION_EXP_MINUTES};
-use crate::services::email_service::{EmailTemplateValues, VerifyEmail};
+use crate::services::email_service::EmailTemplateValues;
+use crate::types::claims::Claims;
+use crate::types::email::Email;
+use crate::types::error::CustomError;
+use crate::types::verify_email::VerifyEmail;
 use crate::{
     AppState,
     dtos::{auth_dto, general_res_dto::GeneralResDto},
@@ -11,7 +13,7 @@ use crate::{
 use axum::{Json, debug_handler, extract::State, http::StatusCode};
 use chrono::offset::LocalResult;
 use chrono::{TimeZone, Utc};
-use std::{env::var, sync::Arc};
+use std::sync::Arc;
 
 #[debug_handler]
 pub async fn register(
@@ -48,30 +50,42 @@ pub async fn register(
     let user_id = state.user_service.create_user(&user).await?;
 
     // Send email to verify email address
-    let (object_bytes, ext) = state
-        .storage_service
-        .get_object("halalho/email-templates/verify-email.html")
-        .await
-        .map_err(|_| CustomError::R2Error)?;
+    tokio::spawn({
+        let state = state.clone();
+        let username = user.username.clone();
+        let email = user.email.clone();
 
-    let object_extension = match ext {
-        Some(v) => v,
-        None => return Err(CustomError::R2Error),
-    };
+        async move {
+            if let Err(err) = async {
+                let (object_bytes, ext) = state
+                    .storage_service
+                    .get_object("halalho/email-templates/verify-email.html")
+                    .await
+                    .map_err(|_| CustomError::R2Error)?;
 
-    let values = EmailTemplateValues::VerifyEmailValues(VerifyEmail {
-        app_name: var("APP_NAME").expect("APP_NAME missing"),
-        username: user.username,
-        verification_url: "http://localhost".to_owned(),
-        expiry_minutes: EMAIL_VERIFICATION_EXP_MINUTES.to_string(),
-        support_email: "support@halalho.com".to_owned(),
-        company_address: "teststr.32 55555 pwt".to_owned(),
-        unsubscribe_url: "http://localhost/unsubscribe".to_owned(),
+                let object_extension = ext.ok_or(CustomError::R2Error)?;
+
+                let values = EmailTemplateValues::VerifyEmailValues(VerifyEmail::new(&username));
+
+                let email_html =
+                    state
+                        .email_service
+                        .prepare_template(&object_bytes, &object_extension, values)?;
+
+                let email: Email = Email::new(
+                    vec![(&username, &email)],
+                    email_html,
+                    "Please verify your email-address",
+                );
+
+                state.email_service.send_transactional_email(email).await?;
+
+                Ok::<(), CustomError>(())
+            }.await{
+                tracing::error!("Failed to send verification email for {}: {:?}", email, err)
+            }
+        }
     });
-
-    let email = state
-        .email_service
-        .prepare_template(&object_bytes, &object_extension, values);
 
     // Generate tokens for authentication
     let (tokens, jti, exp) = state
@@ -103,7 +117,7 @@ pub async fn register(
 
     state.token_service.create_token(&new_refresh_token).await?;
 
-    tracing::info!("User {} has logged in after registration", user.email);
+    tracing::info!("User {} has logged in after registration", user_id.to_hex());
 
     Ok(Json(tokens))
 }

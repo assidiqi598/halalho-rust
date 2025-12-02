@@ -21,7 +21,14 @@ mod services {
     pub mod token_service;
     pub mod user_service;
 }
-mod error;
+mod types {
+    pub mod error;
+    pub mod claims;
+    pub mod refresh_claims;
+    pub mod keys;
+    pub mod verify_email;
+    pub mod email;
+}
 mod utils;
 
 use crate::{

@@ -28,14 +28,30 @@ pub async fn connect_db() -> Result<Database, Error> {
 
     let db = client.database("halalho");
 
+    // email unique index for users
     let users_coll: Collection<User> = db.collection("users");
     let email_index_opts = IndexOptions::builder().unique(true).build();
     let email_index = IndexModel::builder()
         .keys(doc! { "email": 1})
         .options(email_index_opts)
         .build();
-    let user_idx = users_coll.create_index(email_index).await?;
-    println!("Created unique index '{}' for users", user_idx.index_name);
+    let email_user_idx = users_coll.create_index(email_index).await?;
+    tracing::info!(
+        "Created unique index '{}' for users",
+        email_user_idx.index_name
+    );
+
+    // username unique index for users
+    let username_index_opts = IndexOptions::builder().unique(true).build();
+    let username_index = IndexModel::builder()
+        .keys(doc! { "username": 1 })
+        .options(username_index_opts)
+        .build();
+    let username_user_idx = users_coll.create_index(username_index).await?;
+    tracing::info!(
+        "Created unique index '{}' for users",
+        username_user_idx.index_name
+    );
 
     let tokens_coll: Collection<Token> = db.collection("tokens");
     let token_index_opts = IndexOptions::builder().unique(true).build();
@@ -44,7 +60,7 @@ pub async fn connect_db() -> Result<Database, Error> {
         .options(token_index_opts)
         .build();
     let token_idx = tokens_coll.create_index(token_index).await?;
-    println!("Created unique index '{}' for tokens", token_idx.index_name);
+    tracing::info!("Created unique index '{}' for tokens", token_idx.index_name);
 
     let token_ttl_index_opts = IndexOptions::builder()
         .expire_after(Some(Duration::from_secs(REFRESH_EXP_DAYS as u64)))
@@ -54,7 +70,7 @@ pub async fn connect_db() -> Result<Database, Error> {
         .options(token_ttl_index_opts)
         .build();
     let token_ttl_idx = tokens_coll.create_index(token_ttl_index).await?;
-    println!(
+    tracing::info!(
         "Created ttl index '{}' for tokens",
         token_ttl_idx.index_name
     );

@@ -1,28 +1,8 @@
-use crate::error::CustomError;
+use reqwest::Client;
 
-pub struct VerifyEmail {
-    pub app_name: String,
-    pub username: String,
-    pub verification_url: String,
-    pub expiry_minutes: String,
-    pub support_email: String,
-    pub company_address: String,
-    pub unsubscribe_url: String,
-}
+use crate::types::{email::Email, error::CustomError, verify_email::VerifyEmail};
 
-impl VerifyEmail {
-    pub fn as_array(&self) -> [(&str, &str); 7] {
-        [
-            ("app_name", &self.app_name),
-            ("username", &self.username),
-            ("verification_url", &self.verification_url),
-            ("expiry_minutes", &self.expiry_minutes),
-            ("support_email", &self.support_email),
-            ("company_address", &self.company_address),
-            ("unsubscribe_url", &self.unsubscribe_url),
-        ]
-    }
-}
+use std::env::var;
 
 pub enum EmailTemplateValues {
     VerifyEmailValues(VerifyEmail),
@@ -44,10 +24,8 @@ impl EmailService {
         // Implement convert to string
         let mut template = match String::from_utf8(bytes.to_owned()) {
             Ok(v) => v,
-            Err(e) => return Err(CustomError::EmailTemplateError),
+            Err(_e) => return Err(CustomError::EmailTemplateError),
         };
-
-        println!("template:\n{}", template);
 
         // Implement replace all placeholders with values
         match values {
@@ -56,11 +34,36 @@ impl EmailService {
                     template = template.replace(&format!("{{{{{}}}}}", name), value)
                 }
 
-                println!("template:\n{}", template);
-
                 Ok(template)
             }
             _ => return Err(CustomError::EmailTemplateError),
         }
+    }
+
+    pub async fn send_transactional_email(&self, email: Email) -> Result<(), CustomError> {
+        let client = Client::new();
+
+        let api_key = var("BREVO_API_KEY").expect("BREVO_API_KEY missing");
+
+        let res = client
+            .post("https://api.brevo.com/v3/smtp/email")
+            .header("api-key", api_key)
+            .header("accept", "application/json")
+            .header("content-type", "application/json")
+            .json(&email)
+            .send()
+            .await?;
+
+        if res.status().is_success() {
+            tracing::info!("Email verification has been sent");
+            return Ok(());
+        }
+
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+
+        tracing::error!("Brevo error {}: {}", status, body);
+
+        Err(CustomError::SendEmailError)
     }
 }

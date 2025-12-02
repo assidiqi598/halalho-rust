@@ -5,7 +5,7 @@ use mongodb::{
 };
 
 use crate::{
-    error::CustomError,
+    types::error::CustomError,
     models::user::{NewUser, User},
 };
 
