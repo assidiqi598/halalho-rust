@@ -1,6 +1,6 @@
 use crate::{
     types::error::CustomError,
-    models::token::{NewToken, Token},
+    models::refresh_token::{NewRefreshToken, RefreshToken},
 };
 use chrono::Utc;
 use mongodb::{
@@ -9,19 +9,19 @@ use mongodb::{
     error::{ErrorKind, WriteFailure},
 };
 
-pub struct TokenService {
+pub struct RefreshTokenService {
     pub db: Database,
 }
 
-impl TokenService {
+impl RefreshTokenService {
     pub fn new(db: Database) -> Self {
         Self { db }
     }
 
-    pub async fn get_token_by_jti(&self, data: &str) -> Result<Token, CustomError> {
+    pub async fn get_token_by_jti(&self, data: &str) -> Result<RefreshToken, CustomError> {
         match self
             .db
-            .collection::<Token>("tokens")
+            .collection::<RefreshToken>("tokens")
             .find_one(doc! { "token": data })
             .await
         {
@@ -34,10 +34,10 @@ impl TokenService {
         }
     }
 
-    pub async fn create_token(&self, data: &NewToken) -> Result<(), CustomError> {
+    pub async fn create_token(&self, data: &NewRefreshToken) -> Result<(), CustomError> {
         match self
             .db
-            .collection::<NewToken>("tokens")
+            .collection::<NewRefreshToken>("tokens")
             .insert_one(data)
             .await
         {
@@ -61,7 +61,7 @@ impl TokenService {
     pub async fn revoke_token(&self, token: &str) -> Result<(), CustomError> {
         match self
             .db
-            .collection::<Token>("tokens")
+            .collection::<RefreshToken>("tokens")
             .update_one(
                 doc! { "token": token, "isRevoked": false },
                 doc! { "$set": doc! { "isRevoked": true, "usedAt": Utc::now() } },

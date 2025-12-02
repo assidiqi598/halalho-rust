@@ -3,6 +3,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
+pub const USERS_COLL: &str = "users";
+
 #[allow(non_snake_case)]
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]

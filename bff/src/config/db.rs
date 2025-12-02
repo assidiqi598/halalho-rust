@@ -7,7 +7,7 @@ use mongodb::{
 use std::env;
 use std::time::Duration;
 
-use crate::models::token::Token;
+use crate::models::refresh_token::RefreshToken;
 use crate::models::user::User;
 use crate::services::auth_service::REFRESH_EXP_DAYS;
 
@@ -53,7 +53,7 @@ pub async fn connect_db() -> Result<Database, Error> {
         username_user_idx.index_name
     );
 
-    let tokens_coll: Collection<Token> = db.collection("tokens");
+    let tokens_coll: Collection<RefreshToken> = db.collection("refresh_tokens");
     let token_index_opts = IndexOptions::builder().unique(true).build();
     let token_index = IndexModel::builder()
         .keys(doc! { "token": 1})

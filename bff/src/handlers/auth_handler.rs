@@ -1,5 +1,5 @@
 use crate::dtos::auth_dto::AuthResDto;
-use crate::models::token::NewToken;
+use crate::models::refresh_token::NewRefreshToken;
 use crate::services::email_service::EmailTemplateValues;
 use crate::types::claims::Claims;
 use crate::types::email::Email;
@@ -65,12 +65,19 @@ pub async fn register(
 
                 let object_extension = ext.ok_or(CustomError::R2Error)?;
 
-                let values = EmailTemplateValues::VerifyEmailValues(VerifyEmail::new(&username));
+                let (raw_token, token_hash) =
+                    state.auth_service.generate_email_verification_token()?;
 
-                let email_html =
-                    state
-                        .email_service
-                        .prepare_template(&object_bytes, &object_extension, values)?;
+                
+
+                let values =
+                    EmailTemplateValues::VerifyEmailValues(VerifyEmail::new(&username, &raw_token));
+
+                let email_html = state.email_service.prepare_template(
+                    &object_bytes,
+                    &object_extension,
+                    values,
+                )?;
 
                 let email: Email = Email::new(
                     vec![(&username, &email)],
@@ -81,7 +88,9 @@ pub async fn register(
                 state.email_service.send_transactional_email(email).await?;
 
                 Ok::<(), CustomError>(())
-            }.await{
+            }
+            .await
+            {
                 tracing::error!("Failed to send verification email for {}: {:?}", email, err)
             }
         }
@@ -106,7 +115,7 @@ pub async fn register(
     //     CustomError::TokenCreation
     // })?;
 
-    let new_refresh_token = NewToken {
+    let new_refresh_token = NewRefreshToken {
         userId: user_id,
         token: jti,
         isRevoked: false,
@@ -152,7 +161,7 @@ pub async fn login(
                 }
             };
 
-            let new_refresh_token = NewToken {
+            let new_refresh_token = NewRefreshToken {
                 userId: user.id,
                 token: jti,
                 isRevoked: false,
@@ -271,7 +280,7 @@ pub async fn refresh(
         }
     };
 
-    let new_refresh_token = NewToken {
+    let new_refresh_token = NewRefreshToken {
         userId: user.id,
         token: jti,
         isRevoked: false,

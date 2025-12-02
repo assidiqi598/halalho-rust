@@ -11,14 +11,14 @@ mod dtos {
     pub mod general_res_dto;
 }
 mod models {
-    pub mod token;
+    pub mod refresh_token;
     pub mod user;
 }
 mod services {
     pub mod auth_service;
     pub mod email_service;
     pub mod storage_service;
-    pub mod token_service;
+    pub mod refresh_token_service;
     pub mod user_service;
 }
 mod types {
@@ -29,13 +29,16 @@ mod types {
     pub mod verify_email;
     pub mod email;
 }
-mod utils;
+mod utils {
+    pub mod datetime;
+    pub mod db_util;
+}
 
 use crate::{
     config::{db, r2},
     services::{
         auth_service::AuthService, email_service::EmailService, storage_service::StorageService,
-        token_service::TokenService, user_service::UserService,
+        refresh_token_service::RefreshTokenService, user_service::UserService,
     },
 };
 use axum::http::{
@@ -50,7 +53,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 pub struct AppState {
     pub user_service: UserService,
-    pub token_service: TokenService,
+    pub token_service: RefreshTokenService,
     pub auth_service: AuthService,
     pub storage_service: StorageService,
     pub email_service: EmailService,
@@ -81,7 +84,7 @@ async fn main() {
 
     let app = create_router(Arc::new(AppState {
         user_service: UserService { db: db.clone() },
-        token_service: TokenService { db },
+        token_service: RefreshTokenService { db },
         auth_service: AuthService {},
         storage_service: StorageService { r2_client },
         email_service: EmailService {},

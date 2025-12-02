@@ -36,7 +36,6 @@ impl EmailService {
 
                 Ok(template)
             }
-            _ => return Err(CustomError::EmailTemplateError),
         }
     }
 

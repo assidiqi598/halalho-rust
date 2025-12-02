@@ -1,7 +1,7 @@
 use crate::{
     dtos::auth_dto::AuthResDto,
     types::{claims::Claims, error::CustomError, keys::KEYS, refresh_claims::RefreshClaims},
-    utils::now_epoch,
+    utils::datetime::now_epoch,
 };
 use argon2::{
     Argon2,
@@ -11,6 +11,8 @@ use argon2::{
 };
 use bson::uuid;
 use jsonwebtoken::{Header, Validation, decode, encode, errors::ErrorKind};
+use rand::{TryRngCore};
+use sha2::{Sha256, Digest};
 
 const ACCESS_EXP_MINUTES: u32 = 15 * 60;
 pub const REFRESH_EXP_DAYS: u32 = 7 * 24 * 3600;
@@ -76,19 +78,17 @@ impl AuthService {
         }
     }
 
-    pub fn decode_access_token_without_exp(
-        &self,
-        access_token: &str,
-    ) -> Result<Claims, CustomError> {
-        let mut validation = Validation::default();
-        validation.validate_exp = false;
+    pub fn generate_email_verification_token(&self) -> Result<(String, String), CustomError> {
 
-        match decode::<Claims>(access_token, &KEYS.decoding, &validation) {
-            Ok(value) => Ok(value.claims),
-            Err(err) => match err.kind() {
-                ErrorKind::ExpiredSignature => Err(CustomError::TokenExpired),
-                _ => Err(CustomError::InvalidToken),
-            },
-        }
+        let mut bytes = [0u8; 32];
+        rand::rngs::OsRng.try_fill_bytes(&mut bytes).map_err(|_| CustomError::TokenCreation)?;
+
+        let raw_token = hex::encode(bytes);
+
+        let mut hasher = Sha256::new();
+        hasher.update(&raw_token);
+        let token_hash = hex::encode(hasher.finalize());
+
+        Ok((raw_token, token_hash))
     }
 }

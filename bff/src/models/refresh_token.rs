@@ -3,10 +3,12 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
+pub const REFRESH_TOKEN_COLL: &str = "refresh_tokens";
+
 #[allow(non_snake_case)]
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Token {
+pub struct RefreshToken {
     #[serde(rename = "_id")]
     pub id: ObjectId,
     pub userId: ObjectId,
@@ -27,7 +29,7 @@ pub struct Token {
 #[allow(non_snake_case)]
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct NewToken {
+pub struct NewRefreshToken {
     pub userId: ObjectId,
     pub token: String,
     pub isRevoked: bool,
