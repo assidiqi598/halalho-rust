@@ -13,21 +13,23 @@ mod dtos {
 mod models {
     pub mod refresh_token;
     pub mod user;
+    pub mod verif_email_token;
 }
 mod services {
     pub mod auth_service;
     pub mod email_service;
-    pub mod storage_service;
     pub mod refresh_token_service;
+    pub mod storage_service;
     pub mod user_service;
+    pub mod verif_email_token_service;
 }
 mod types {
-    pub mod error;
     pub mod claims;
-    pub mod refresh_claims;
-    pub mod keys;
-    pub mod verify_email;
     pub mod email;
+    pub mod error;
+    pub mod keys;
+    pub mod refresh_claims;
+    pub mod verify_email;
 }
 mod utils {
     pub mod datetime;
@@ -37,8 +39,9 @@ mod utils {
 use crate::{
     config::{db, r2},
     services::{
-        auth_service::AuthService, email_service::EmailService, storage_service::StorageService,
-        refresh_token_service::RefreshTokenService, user_service::UserService,
+        auth_service::AuthService, email_service::EmailService,
+        refresh_token_service::RefreshTokenService, storage_service::StorageService,
+        user_service::UserService, verif_email_token_service::VerifEmailTokenService,
     },
 };
 use axum::http::{
@@ -53,10 +56,11 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 pub struct AppState {
     pub user_service: UserService,
-    pub token_service: RefreshTokenService,
+    pub refresh_token_service: RefreshTokenService,
     pub auth_service: AuthService,
     pub storage_service: StorageService,
     pub email_service: EmailService,
+    pub verif_email_token_service: VerifEmailTokenService
 }
 
 #[tokio::main]
@@ -83,17 +87,18 @@ async fn main() {
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE]);
 
     let app = create_router(Arc::new(AppState {
-        user_service: UserService { db: db.clone() },
-        token_service: RefreshTokenService { db },
-        auth_service: AuthService {},
-        storage_service: StorageService { r2_client },
-        email_service: EmailService {},
+        user_service: UserService::new(db.clone()),
+        refresh_token_service: RefreshTokenService::new(db.clone()),
+        auth_service: AuthService::new(),
+        storage_service: StorageService::new(r2_client),
+        email_service: EmailService::new(),
+        verif_email_token_service: VerifEmailTokenService::new(db)
     }))
     .layer(cors);
 
     let port = std::env::var("BFF_PORT").expect("BFF_PORT is not set");
 
-    let listener = tokio::net::TcpListener::bind("localhost:".to_string() + &port)
+    let listener = tokio::net::TcpListener::bind("localhost:".to_owned() + &port)
         .await
         .unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());

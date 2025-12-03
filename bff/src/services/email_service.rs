@@ -11,6 +11,10 @@ pub enum EmailTemplateValues {
 pub struct EmailService {}
 
 impl EmailService {
+    pub fn new() -> Self {
+        Self {}
+    }
+
     pub fn prepare_template(
         &self,
         bytes: &[u8],

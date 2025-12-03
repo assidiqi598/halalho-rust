@@ -1,10 +1,13 @@
 use crate::dtos::auth_dto::AuthResDto;
 use crate::models::refresh_token::NewRefreshToken;
+use crate::models::verif_email_token::NewVerifEmailToken;
+use crate::services::auth_service::EMAIL_VERIFICATION_EXP_MINUTES;
 use crate::services::email_service::EmailTemplateValues;
 use crate::types::claims::Claims;
 use crate::types::email::Email;
 use crate::types::error::CustomError;
 use crate::types::verify_email::VerifyEmail;
+use crate::utils::datetime::now_epoch;
 use crate::{
     AppState,
     dtos::{auth_dto, general_res_dto::GeneralResDto},
@@ -54,6 +57,7 @@ pub async fn register(
         let state = state.clone();
         let username = user.username.clone();
         let email = user.email.clone();
+        let user_id = user_id.clone();
 
         async move {
             if let Err(err) = async {
@@ -68,7 +72,25 @@ pub async fn register(
                 let (raw_token, token_hash) =
                     state.auth_service.generate_email_verification_token()?;
 
-                
+                let new_verif_email_token = NewVerifEmailToken {
+                    userId: user_id,
+                    tokenHash: token_hash,
+                    expiresAt: Utc
+                        .timestamp_opt(
+                            (now_epoch() + EMAIL_VERIFICATION_EXP_MINUTES as usize) as i64,
+                            0,
+                        )
+                        .single()
+                        .ok_or_else(|| {
+                            tracing::error!(
+                                "Error converting timestamp for verif email token expiration"
+                            );
+                            CustomError::TokenCreation
+                        })?,
+                    createdAt: Utc::now(),
+                };
+
+                state.verif_email_token_service.create_token(&new_verif_email_token).await?;
 
                 let values =
                     EmailTemplateValues::VerifyEmailValues(VerifyEmail::new(&username, &raw_token));
@@ -124,7 +146,10 @@ pub async fn register(
         usedAt: None,
     };
 
-    state.token_service.create_token(&new_refresh_token).await?;
+    state
+        .refresh_token_service
+        .create_token(&new_refresh_token)
+        .await?;
 
     tracing::info!("User {} has logged in after registration", user_id.to_hex());
 
@@ -170,7 +195,10 @@ pub async fn login(
                 usedAt: None,
             };
 
-            state.token_service.create_token(&new_refresh_token).await?;
+            state
+                .refresh_token_service
+                .create_token(&new_refresh_token)
+                .await?;
 
             Ok(Json(tokens))
         }
@@ -202,7 +230,7 @@ pub async fn logout(
     }
 
     state
-        .token_service
+        .refresh_token_service
         .revoke_token(&refresh_claims.jti)
         .await?;
 
@@ -231,7 +259,7 @@ pub async fn refresh(
     }
 
     let current_token = state
-        .token_service
+        .refresh_token_service
         .get_token_by_jti(&current_refresh_claims.jti)
         .await?;
 
@@ -257,7 +285,7 @@ pub async fn refresh(
 
     if should_revoke {
         state
-            .token_service
+            .refresh_token_service
             .revoke_token(&current_refresh_claims.jti)
             .await?;
     }
@@ -289,7 +317,10 @@ pub async fn refresh(
         usedAt: None,
     };
 
-    state.token_service.create_token(&new_refresh_token).await?;
+    state
+        .refresh_token_service
+        .create_token(&new_refresh_token)
+        .await?;
 
     Ok(Json(tokens))
 }

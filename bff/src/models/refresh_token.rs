@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
-pub const REFRESH_TOKEN_COLL: &str = "refresh_tokens";
+pub const REFRESH_TOKENS_COLL: &str = "refresh_tokens";
 
 #[allow(non_snake_case)]
 #[serde_as]

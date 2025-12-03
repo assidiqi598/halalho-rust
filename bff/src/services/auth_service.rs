@@ -11,8 +11,8 @@ use argon2::{
 };
 use bson::uuid;
 use jsonwebtoken::{Header, Validation, decode, encode, errors::ErrorKind};
-use rand::{TryRngCore};
-use sha2::{Sha256, Digest};
+use rand::TryRngCore;
+use sha2::{Digest, Sha256};
 
 const ACCESS_EXP_MINUTES: u32 = 15 * 60;
 pub const REFRESH_EXP_DAYS: u32 = 7 * 24 * 3600;
@@ -21,6 +21,10 @@ pub const EMAIL_VERIFICATION_EXP_MINUTES: u32 = 3600;
 pub struct AuthService {}
 
 impl AuthService {
+    pub fn new() -> Self {
+        Self {}
+    }
+
     pub fn hash_password(&self, password: String) -> Result<String, Error> {
         let password_as_bytes = password.as_bytes();
         let salt = SaltString::generate(&mut OsRng);
@@ -79,9 +83,10 @@ impl AuthService {
     }
 
     pub fn generate_email_verification_token(&self) -> Result<(String, String), CustomError> {
-
         let mut bytes = [0u8; 32];
-        rand::rngs::OsRng.try_fill_bytes(&mut bytes).map_err(|_| CustomError::TokenCreation)?;
+        rand::rngs::OsRng
+            .try_fill_bytes(&mut bytes)
+            .map_err(|_| CustomError::TokenCreation)?;
 
         let raw_token = hex::encode(bytes);
 
