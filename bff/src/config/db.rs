@@ -20,7 +20,7 @@ pub async fn connect_db() -> Result<Database, Error> {
         .database("halalho")
         .run_command(doc! { "ping": 1 })
         .await?;
-    println!("Pinged your deployment. You successfully connected to MongoDB!");
+    tracing::info!("Pinged your deployment. You successfully connected to MongoDB!");
 
     let db = client.database("halalho");
 
