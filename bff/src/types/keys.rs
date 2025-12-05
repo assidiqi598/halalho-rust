@@ -1,6 +1,5 @@
-use jsonwebtoken::{EncodingKey, DecodingKey};
+use jsonwebtoken::{DecodingKey, EncodingKey};
 use std::{env::var, sync::LazyLock};
-
 
 pub struct Keys {
     pub encoding: EncodingKey,

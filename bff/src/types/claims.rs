@@ -1,13 +1,13 @@
 use crate::types::error::CustomError;
+use crate::types::keys::KEYS;
 use axum::{RequestPartsExt, extract::FromRequestParts, http::request::Parts};
 use axum_extra::{
     TypedHeader,
     headers::{Authorization, authorization::Bearer},
 };
+use jsonwebtoken::{Validation, decode, errors::ErrorKind};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
-use jsonwebtoken::{decode, errors::ErrorKind, Validation};
-use crate::types::keys::KEYS;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {

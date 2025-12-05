@@ -23,7 +23,7 @@ pub enum CustomError {
     TokenCreation,
     #[error("Invalid token")]
     InvalidToken,
-    #[error("RefreshToken expired")]
+    #[error("Token expired")]
     TokenExpired,
     #[error("Hash error")]
     HashError,
@@ -51,7 +51,7 @@ impl IntoResponse for CustomError {
                 "RefreshToken creation error".to_string(),
             ),
             CustomError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid token".to_string()),
-            CustomError::TokenExpired => (StatusCode::UNAUTHORIZED, "RefreshToken is expired".to_string()),
+            CustomError::TokenExpired => (StatusCode::UNAUTHORIZED, "Token is expired".to_string()),
             CustomError::MongoError(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "MongoDB error".to_string(),

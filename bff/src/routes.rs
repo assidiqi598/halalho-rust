@@ -9,12 +9,15 @@ use axum::{
 use std::sync::Arc;
 
 pub fn create_router(app_state: Arc<AppState>) -> Router {
-    Router::new()
-        .route("/", get(|| async { "Auth Service Running 🚀" }))
+    let auth_routes = Router::new()
         .route("/register", post(register))
         .route("/login", post(login))
         .route("/logout", post(logout))
         .route("/refresh", post(refresh))
-        .route("/verify_email", post(verify_email))
+        .route("/verify_email", post(verify_email));
+    
+    Router::new()
+        .route("/", get(|| async { "Auth Service Running 🚀" }))
+        .nest("/auth", auth_routes)
         .with_state(app_state)
 }
