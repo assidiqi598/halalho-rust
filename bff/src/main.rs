@@ -24,6 +24,7 @@ mod services {
     pub mod verif_email_token_service;
 }
 mod types {
+    pub mod app_state;
     pub mod claims;
     pub mod email;
     pub mod error;
@@ -43,6 +44,7 @@ use crate::{
         refresh_token_service::RefreshTokenService, storage_service::StorageService,
         user_service::UserService, verif_email_token_service::VerifEmailTokenService,
     },
+    types::app_state::AppState,
 };
 use axum::{
     extract::Request,
@@ -62,15 +64,6 @@ use tower_http::{
 };
 use tracing::Span;
 use tracing_subscriber::{fmt, layer::SubscriberExt, registry, util::SubscriberInitExt};
-
-pub struct AppState {
-    pub user_service: UserService,
-    pub refresh_token_service: RefreshTokenService,
-    pub auth_service: AuthService,
-    pub storage_service: StorageService,
-    pub email_service: EmailService,
-    pub verif_email_token_service: VerifEmailTokenService,
-}
 
 #[tokio::main]
 async fn main() {
