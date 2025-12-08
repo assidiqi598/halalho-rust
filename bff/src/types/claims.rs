@@ -5,14 +5,16 @@ use axum_extra::{
     TypedHeader,
     headers::{Authorization, authorization::Bearer},
 };
-use jsonwebtoken::{Validation, decode, errors::ErrorKind};
+use jsonwebtoken::{Algorithm, Validation, decode, errors::ErrorKind};
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::{env::var, fmt::Display};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,
     pub exp: usize,
+    pub aud: String,
+    pub iss: String,
 }
 
 impl Display for Claims {
@@ -34,7 +36,11 @@ where
             .await
             .map_err(|_| CustomError::InvalidToken)?;
         // Decode the user data
-        match decode::<Claims>(bearer.token(), &KEYS.decoding, &Validation::default()) {
+        let mut validation = Validation::new(Algorithm::EdDSA);
+        validation.set_audience(&[var("JWT_AUDIENCE").expect("JWT_AUDIENCE missing")]);
+        validation.set_issuer(&[var("JWT_ISSUER").expect("JWT_ISSUER missing")]);
+
+        match decode::<Claims>(bearer.token(), &KEYS.decoding, &validation) {
             Ok(value) => {
                 tracing::info!("Req from {} has just arrived", value.claims.sub);
                 Ok(value.claims)

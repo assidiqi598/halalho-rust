@@ -10,9 +10,10 @@ use argon2::{
     },
 };
 use bson::uuid;
-use jsonwebtoken::{Header, Validation, decode, encode, errors::ErrorKind};
+use jsonwebtoken::{Algorithm, Header, Validation, decode, encode, errors::ErrorKind};
 use rand::TryRngCore;
 use sha2::{Digest, Sha256};
+use std::env::var;
 
 const ACCESS_EXP_MINUTES: u32 = 15 * 60;
 pub const REFRESH_EXP_DAYS: u32 = 7 * 24 * 3600;
@@ -51,19 +52,27 @@ impl AuthService {
         let claims = Claims {
             sub: user_id.to_owned(),
             exp: now_epoch() + ACCESS_EXP_MINUTES as usize,
+            aud: var("JWT_AUDIENCE").expect("JWT_AUDIENCE missing"),
+            iss: var("JWT_ISSUER").expect("JWT_ISSUER missing"),
         };
 
         let refresh_claims = RefreshClaims {
             sub: user_id.to_owned(),
             exp: now_epoch() + REFRESH_EXP_DAYS as usize,
             jti: uuid::Uuid::new().to_string(),
+            aud: var("JWT_AUDIENCE").expect("JWT_AUDIENCE missing"),
+            iss: var("JWT_ISSUER").expect("JWT_ISSUER missing"),
         };
 
-        let access_token = encode(&Header::default(), &claims, &KEYS.encoding)
+        let access_token = encode(&Header::new(Algorithm::EdDSA), &claims, &KEYS.encoding)
             .map_err(|_| CustomError::TokenCreation)?;
 
-        let refresh_token = encode(&Header::default(), &refresh_claims, &KEYS.encoding)
-            .map_err(|_| CustomError::TokenCreation)?;
+        let refresh_token = encode(
+            &Header::new(Algorithm::EdDSA),
+            &refresh_claims,
+            &KEYS.encoding,
+        )
+        .map_err(|_| CustomError::TokenCreation)?;
 
         Ok((
             AuthResDto::new(access_token, refresh_token),
@@ -73,7 +82,15 @@ impl AuthService {
     }
 
     pub fn decode_refresh_token(&self, refresh_token: &str) -> Result<RefreshClaims, CustomError> {
-        match decode::<RefreshClaims>(refresh_token, &KEYS.decoding, &Validation::default()) {
+        let mut validation = Validation::new(Algorithm::EdDSA);
+        validation.set_audience(&[var("JWT_AUDIENCE").expect("JWT_AUDIENCE missing")]);
+        validation.set_issuer(&[var("JWT_ISSUER").expect("JWT_ISSUER missing")]);
+
+        match decode::<RefreshClaims>(
+            refresh_token,
+            &KEYS.decoding,
+            &validation,
+        ) {
             Ok(value) => Ok(value.claims),
             Err(err) => match err.kind() {
                 ErrorKind::ExpiredSignature => Err(CustomError::TokenExpired),
