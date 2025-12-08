@@ -40,3 +40,6 @@ coverage/
 
 # Email templates
 /email-templates
+
+**/*.pem
+**/*.b64
