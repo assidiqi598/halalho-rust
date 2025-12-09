@@ -107,10 +107,14 @@ impl AuthService {
 
         let raw_token = hex::encode(bytes);
 
-        let mut hasher = Sha256::new();
-        hasher.update(&raw_token);
-        let token_hash = hex::encode(hasher.finalize());
+        let token_hash = self.hash_raw_token(&raw_token);
 
         Ok((raw_token, token_hash))
+    }
+
+    pub fn hash_raw_token(&self, raw_token: &str) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(raw_token);
+        hex::encode(hasher.finalize())
     }
 }

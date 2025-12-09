@@ -13,7 +13,7 @@ mod dtos {
 mod models {
     pub mod refresh_token;
     pub mod user;
-    pub mod verif_email_token;
+    pub mod email_verif_token;
 }
 mod services {
     pub mod auth_service;
@@ -21,7 +21,7 @@ mod services {
     pub mod refresh_token_service;
     pub mod storage_service;
     pub mod user_service;
-    pub mod verif_email_token_service;
+    pub mod email_verif_token_service;
 }
 mod types {
     pub mod app_state;
@@ -42,7 +42,7 @@ use crate::{
     services::{
         auth_service::AuthService, email_service::EmailService,
         refresh_token_service::RefreshTokenService, storage_service::StorageService,
-        user_service::UserService, verif_email_token_service::VerifEmailTokenService,
+        user_service::UserService, email_verif_token_service::VerifEmailTokenService,
     },
     types::app_state::AppState,
 };

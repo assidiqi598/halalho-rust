@@ -1,11 +1,13 @@
 use bson::{doc, oid::ObjectId};
+use chrono::Utc;
 use mongodb::{
     Database,
     error::{ErrorKind, WriteFailure},
 };
 
 use crate::{
-    models::user::{NewUser, USERS_COLL, User}, types::error::CustomError
+    models::user::{NewUser, USERS_COLL, User},
+    types::error::CustomError,
 };
 
 pub struct UserService {
@@ -41,6 +43,36 @@ impl UserService {
         }
     }
 
+    pub async fn update_email_verified(&self, user_id: &str) -> Result<(), CustomError> {
+        let user_obj_id = ObjectId::parse_str(user_id).map_err(|e| {
+            tracing::error!("Error while parsing {}: {:?}", user_id, e);
+            CustomError::InvalidIDError(user_id.to_owned())
+        })?;
+
+        match self
+            .db
+            .collection::<User>(USERS_COLL)
+            .update_one(
+                doc! {
+                    "_id": user_obj_id
+                },
+                doc! {
+                    "$set": {
+                        "isEmailVerified": true,
+                        "updatedAt": Utc::now()
+                    }
+                },
+            )
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                tracing::error!("Error updating email verified for {}: {:?}", user_id, err);
+                Err(CustomError::MongoError(err))
+            }
+        }
+    }
+
     pub async fn get_user_by_id(&self, id: &str) -> Result<User, CustomError> {
         let user_id =
             ObjectId::parse_str(id).map_err(|_| CustomError::InvalidIDError(id.to_owned()))?;
@@ -70,7 +102,7 @@ impl UserService {
             Ok(Some(user)) => Ok(user),
             Ok(None) => Err(CustomError::NotFoundError(email.to_owned())),
             Err(err) => {
-                tracing::debug!("Error finding user: {:?}", err);
+                tracing::error!("Error finding user: {:?}", err);
                 Err(CustomError::MongoError(err))
             }
         }

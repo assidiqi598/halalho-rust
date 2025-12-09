@@ -1,7 +1,7 @@
 use crate::services::{
     auth_service::AuthService, email_service::EmailService,
     refresh_token_service::RefreshTokenService, storage_service::StorageService,
-    user_service::UserService, verif_email_token_service::VerifEmailTokenService,
+    user_service::UserService, email_verif_token_service::VerifEmailTokenService,
 };
 
 pub struct AppState {

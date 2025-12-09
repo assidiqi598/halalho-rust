@@ -40,3 +40,8 @@ pub struct VerifyEmailDto {
     pub user_id: String,
     pub token: String
 }
+
+#[derive(Debug, Deserialize)]
+pub struct ReqResetPassLinkDto {
+    pub email: String,
+}

@@ -1,6 +1,6 @@
-use crate::dtos::auth_dto::AuthResDto;
+use crate::dtos::auth_dto::{AuthResDto, ReqResetPassLinkDto};
 use crate::models::refresh_token::NewRefreshToken;
-use crate::models::verif_email_token::NewVerifEmailToken;
+use crate::models::email_verif_token::NewEmailVerifToken;
 use crate::services::auth_service::EMAIL_VERIFICATION_EXP_MINUTES;
 use crate::services::email_service::EmailTemplateValues;
 use crate::types::claims::Claims;
@@ -72,7 +72,7 @@ pub async fn register(
                 let (raw_token, token_hash) =
                     state.auth_service.generate_email_verification_token()?;
 
-                let new_verif_email_token = NewVerifEmailToken {
+                let new_verif_email_token = NewEmailVerifToken {
                     userId: user_id,
                     tokenHash: token_hash,
                     expiresAt: Utc
@@ -88,9 +88,13 @@ pub async fn register(
                             CustomError::TokenCreation
                         })?,
                     createdAt: Utc::now(),
+                    usedAt: None,
                 };
 
-                state.verif_email_token_service.create_token(&new_verif_email_token).await?;
+                state
+                    .verif_email_token_service
+                    .create_token(&new_verif_email_token)
+                    .await?;
 
                 let values =
                     EmailTemplateValues::VerifyEmailValues(VerifyEmail::new(&username, &raw_token));
@@ -325,14 +329,53 @@ pub async fn refresh(
     Ok(Json(tokens))
 }
 
+/// Verify email address based on the link from email which was sent to user
 pub async fn verify_email(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<auth_dto::VerifyEmailDto>,
 ) -> Result<Json<GeneralResDto>, CustomError> {
+    if payload.user_id.is_empty() || payload.token.is_empty() {
+        return Err(CustomError::MissingCredentials);
+    }
+
+    let user = state.user_service.get_user_by_id(&payload.user_id).await?;
+
+    if user.isEmailVerified == true {
+        return Ok(Json(GeneralResDto {
+            status_code: 200,
+            message: "Email is already verified".to_owned(),
+        }));
+    }
+
+    let hashed_token = state.auth_service.hash_raw_token(&payload.token);
+
+    state
+        .verif_email_token_service
+        .find_valid_token_then_update(&hashed_token, &payload.user_id)
+        .await?;
+
+    state
+        .user_service
+        .update_email_verified(&payload.user_id)
+        .await?;
+
     Ok(Json(GeneralResDto {
         status_code: 200,
         message: "Ok".to_owned(),
     }))
 }
 
-// TODO: implement password reset
+/// Request to get reset password link
+pub async fn send_reset_pass_link(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<ReqResetPassLinkDto>,
+) -> Result<Json<GeneralResDto>, CustomError> {
+    if payload.email.is_empty() {
+        return Err(CustomError::MissingCredentials);
+    }
+
+    Ok(Json(GeneralResDto {
+        status_code: 200,
+        message: "OK".to_owned(),
+    }))
+}
