@@ -32,13 +32,13 @@ impl AuthResDto {
 
 #[derive(Debug, Deserialize)]
 pub struct LogoutDto {
-    pub refresh_token: String
+    pub refresh_token: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct VerifyEmailDto {
+    pub token: String,
     pub user_id: String,
-    pub token: String
 }
 
 #[derive(Debug, Deserialize)]

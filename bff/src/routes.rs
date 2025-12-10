@@ -14,7 +14,7 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         .route("/login", post(login))
         .route("/logout", post(logout))
         .route("/refresh", post(refresh))
-        .route("/verify_email", post(verify_email));
+        .route("/verify_email", get(verify_email));
     
     Router::new()
         .route("/", get(|| async { "Auth Service Running 🚀" }))

@@ -8,8 +8,8 @@
 .DS_Store
 
 # Rust build outputs
-target
-Cargo.lock
+**/target
+**/Cargo.lock
 
 # Environment
 .env

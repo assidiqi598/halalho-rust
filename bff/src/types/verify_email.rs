@@ -13,12 +13,17 @@ pub struct VerifyEmail {
 }
 
 impl VerifyEmail {
-    pub fn new(username: &str, token: &str) -> Self {
+    pub fn new(username: &str, user_id: &str, token: &str) -> Self {
         Self {
             app_name: var("APP_NAME").expect("APP_NAME missing"),
             username: username.to_owned(),
-            verification_url: format!("{}/verify_email?token={}", var("DOMAIN").expect("DOMAIN missing"), token),
-            expiry_minutes: EMAIL_VERIFICATION_EXP_MINUTES.to_string(),
+            verification_url: format!(
+                "{}/auth/verify_email?token={}&user_id={}",
+                var("DOMAIN").expect("DOMAIN missing"),
+                token,
+                user_id
+            ),
+            expiry_minutes: (EMAIL_VERIFICATION_EXP_MINUTES / 60).to_string(),
             support_email: var("SUPPORT_EMAIL").expect("SUPPORT_EMAIL missing"),
             company_address: var("COMPANY_ADDRESS").expect("COMPANY_ADDRESS missing"),
             unsubscribe_url: format!("{}/unsubscribe", var("DOMAIN").expect("DOMAIN missing")),

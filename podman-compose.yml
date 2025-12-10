@@ -1,0 +1,11 @@
+services:
+  bff:
+    build:
+      context: ./bff
+      dockerfile: Podmanfile.dev
+    mem_limit: 8g
+    shm_size: 1g
+    # volumes:
+    #   - ./bff/src:/app/src
+    ports:
+      - "8000:8000"

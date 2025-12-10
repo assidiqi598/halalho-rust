@@ -1,6 +1,6 @@
-use crate::dtos::auth_dto::{AuthResDto, ReqResetPassLinkDto};
-use crate::models::refresh_token::NewRefreshToken;
+use crate::dtos::auth_dto::{AuthResDto, ReqResetPassLinkDto, VerifyEmailDto};
 use crate::models::email_verif_token::NewEmailVerifToken;
+use crate::models::refresh_token::NewRefreshToken;
 use crate::services::auth_service::EMAIL_VERIFICATION_EXP_MINUTES;
 use crate::services::email_service::EmailTemplateValues;
 use crate::types::claims::Claims;
@@ -13,6 +13,7 @@ use crate::{
     dtos::{auth_dto, general_res_dto::GeneralResDto},
     models::user::NewUser,
 };
+use axum::extract::Query;
 use axum::{Json, debug_handler, extract::State, http::StatusCode};
 use chrono::offset::LocalResult;
 use chrono::{TimeZone, Utc};
@@ -96,8 +97,11 @@ pub async fn register(
                     .create_token(&new_verif_email_token)
                     .await?;
 
-                let values =
-                    EmailTemplateValues::VerifyEmailValues(VerifyEmail::new(&username, &raw_token));
+                let values = EmailTemplateValues::VerifyEmailValues(VerifyEmail::new(
+                    &username,
+                    &user_id.to_hex(),
+                    &raw_token,
+                ));
 
                 let email_html = state.email_service.prepare_template(
                     &object_bytes,
@@ -332,7 +336,7 @@ pub async fn refresh(
 /// Verify email address based on the link from email which was sent to user
 pub async fn verify_email(
     State(state): State<Arc<AppState>>,
-    Json(payload): Json<auth_dto::VerifyEmailDto>,
+    payload: Query<VerifyEmailDto>,
 ) -> Result<Json<GeneralResDto>, CustomError> {
     if payload.user_id.is_empty() || payload.token.is_empty() {
         return Err(CustomError::MissingCredentials);

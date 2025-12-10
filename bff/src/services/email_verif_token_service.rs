@@ -3,7 +3,6 @@ use chrono::Utc;
 use mongodb::{
     Database,
     error::{ErrorKind, WriteFailure},
-    options::ReturnDocument,
 };
 
 use crate::{
