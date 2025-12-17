@@ -1,27 +1,30 @@
 mod config {
     pub mod db;
     pub mod r2;
+    pub mod rabbitmq;
 }
 mod routes;
 mod handlers {
-    pub mod auth_handler;
+    pub mod auth_handlers;
+    pub mod test_handlers;
 }
 mod dtos {
     pub mod auth_dto;
     pub mod general_res_dto;
 }
 mod models {
+    pub mod email_verif_token;
     pub mod refresh_token;
     pub mod user;
-    pub mod email_verif_token;
 }
 mod services {
     pub mod auth_service;
     pub mod email_service;
+    pub mod email_verif_token_service;
+    pub mod rabbitmq_service;
     pub mod refresh_token_service;
     pub mod storage_service;
     pub mod user_service;
-    pub mod email_verif_token_service;
 }
 mod types {
     pub mod app_state;
@@ -38,11 +41,12 @@ mod utils {
 }
 
 use crate::{
-    config::{db, r2},
+    config::{db, r2, rabbitmq},
     services::{
         auth_service::AuthService, email_service::EmailService,
+        email_verif_token_service::VerifEmailTokenService, rabbitmq_service::RabbitmqService,
         refresh_token_service::RefreshTokenService, storage_service::StorageService,
-        user_service::UserService, email_verif_token_service::VerifEmailTokenService,
+        user_service::UserService,
     },
     types::app_state::AppState,
 };
@@ -76,6 +80,8 @@ async fn main() {
     let r2_client = r2::connect_r2().await.unwrap();
     tracing::info!("✅ Connected to R2");
 
+    let (rabbitmq_conn, rabbitmq_channel) = rabbitmq::setup_rabbitmq_client().await;
+
     let frontend = var("FRONTEND_URL").expect("FRONTEND_URL missing");
 
     let cors = CorsLayer::new()
@@ -85,11 +91,12 @@ async fn main() {
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE]);
 
     let app = create_router(Arc::new(AppState {
-        user_service: UserService::new(db.clone()),
-        refresh_token_service: RefreshTokenService::new(db.clone()),
         auth_service: AuthService::new(),
-        storage_service: StorageService::new(r2_client),
         email_service: EmailService::new(),
+        rabbitmq_service: RabbitmqService::new(rabbitmq_conn, rabbitmq_channel),
+        refresh_token_service: RefreshTokenService::new(db.clone()),
+        storage_service: StorageService::new(r2_client),
+        user_service: UserService::new(db.clone()),
         verif_email_token_service: VerifEmailTokenService::new(db),
     }))
     .layer(cors)

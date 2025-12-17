@@ -1,0 +1,67 @@
+services:
+  bff:
+    build:
+      context: ./bff
+      dockerfile: Dockerfile.dev
+    mem_limit: 8g
+    shm_size: 1g
+    volumes:
+      - ./bff/src:/app/src
+      - ./rabbitmq/ca_certificate.pem:/app/rabbitmq_client_certs/ca_certificate.pem:ro
+      - ./rabbitmq/client_certificate.pem:/app/rabbitmq_client_certs/client_certificate.pem:ro
+      - ./rabbitmq/client_key.pem:/app/rabbitmq_client_certs/client_key.pem:ro
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - APP_NAME=${APP_NAME}
+      - DOMAIN=${DOMAIN}
+      - BFF_PORT=${BFF_PORT}
+      - SUPPORT_EMAIL=${SUPPORT_EMAIL}
+      - COMPANY_ADDRESS=${COMPANY_ADDRESS}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - BREVO_API_KEY=${BREVO_API_KEY}
+      - BREVO_SENDER_NAME=${BREVO_SENDER_NAME}
+      - BREVO_SENDER_EMAIL=${BREVO_SENDER_EMAIL}
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY}
+      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_ACCESS_KEY_SECRET=${R2_ACCESS_KEY_SECRET}
+      - RABBITMQ_DOMAIN=${RABBITMQ_DOMAIN}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBITMQ_CERT_DIR=${RABBITMQ_CERT_DIR}
+      - RABBITMQ_CERT_DOMAIN=${RABBITMQ_CERT_DOMAIN}
+    networks:
+      - halalho_net
+    depends_on:
+      - rabbitmq
+
+  rabbitmq:
+    image: rabbitmq:4.2.1-management
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+    ports:
+      # - "5671:5671"   # TLS AMQP (used by your Rust app)
+      - "15672:15672" # HTTP management UI
+
+    volumes:
+      - ./rabbitmq/data:/var/lib/rabbitmq
+      - ./rabbitmq/ca_certificate.pem:/certs/ca_certificate.pem:ro
+      - ./rabbitmq/server_certificate.pem:/certs/server_certificate.pem:ro
+      - ./rabbitmq/server_key.pem:/certs/server_key.pem:ro
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+
+    networks:
+      - halalho_net
+
+networks:
+  halalho_net:
+    driver: bridge

@@ -41,5 +41,10 @@ coverage/
 # Email templates
 /email-templates
 
+rabbitmq/data/
+jwt-certs/
+**/*.key
 **/*.pem
+**/*.csr
+**/*.cnf
 **/*.b64
