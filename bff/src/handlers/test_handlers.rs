@@ -14,7 +14,7 @@ pub async fn test_publish(
 
     state
         .rabbitmq_service
-        .publish("amq.topic", "test.events.new", msg)
+        .publish("amq.topic", "users.reg.email", msg)
         .await?;
 
     Ok(Json(GeneralResDto {

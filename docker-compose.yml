@@ -3,8 +3,6 @@ services:
     build:
       context: ./bff
       dockerfile: Dockerfile.dev
-    mem_limit: 8g
-    shm_size: 1g
     volumes:
       - ./bff/src:/app/src
       - ./rabbitmq/ca_certificate.pem:/app/rabbitmq_client_certs/ca_certificate.pem:ro
@@ -27,6 +25,34 @@ services:
       - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_ISSUER=${JWT_ISSUER}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_ACCESS_KEY_SECRET=${R2_ACCESS_KEY_SECRET}
+      - RABBITMQ_DOMAIN=${RABBITMQ_DOMAIN}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBITMQ_CERT_DIR=${RABBITMQ_CERT_DIR}
+      - RABBITMQ_CERT_DOMAIN=${RABBITMQ_CERT_DOMAIN}
+    networks:
+      - halalho_net
+    depends_on:
+      - rabbitmq
+
+  email-service:
+    build:
+      context: ./email-service
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./email-service/src:/app/src
+      - ./rabbitmq/ca_certificate.pem:/app/rabbitmq_client_certs/ca_certificate.pem:ro
+      - ./rabbitmq/client_certificate.pem:/app/rabbitmq_client_certs/client_certificate.pem:ro
+      - ./rabbitmq/client_key.pem:/app/rabbitmq_client_certs/client_key.pem:ro
+    environment:
+      - BREVO_API_KEY=${BREVO_API_KEY}
+      - BREVO_SENDER_NAME=${BREVO_SENDER_NAME}
+      - BREVO_SENDER_EMAIL=${BREVO_SENDER_EMAIL}
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
       - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
       - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
