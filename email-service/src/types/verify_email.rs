@@ -1,6 +1,6 @@
 use std::env::var;
 
-use crate::services::auth_service::EMAIL_VERIFICATION_EXP_MINUTES;
+pub const EMAIL_VERIFICATION_EXP_MINUTES: u32 = 3600;
 
 pub struct VerifyEmail {
     app_name: String,

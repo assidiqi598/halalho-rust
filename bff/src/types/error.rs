@@ -4,7 +4,6 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde_json::json;
-use tokio::sync::mpsc::error::SendError;
 
 #[derive(thiserror::Error, Debug)]
 pub enum CustomError {
@@ -37,7 +36,9 @@ pub enum CustomError {
     #[error("Error sending email")]
     SendEmailError,
     #[error("AMQP publish error")]
-    AMQPPublishError(#[from] amqprs::error::Error)
+    AMQPPublishError(#[from] amqprs::error::Error),
+    #[error("Serialization error")]
+    SerializationError,
 }
 
 impl IntoResponse for CustomError {
@@ -91,7 +92,11 @@ impl IntoResponse for CustomError {
             CustomError::AMQPPublishError(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Error publishing message".to_owned()
-            )
+            ),
+            CustomError::SerializationError => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Error during serialization".to_owned()
+            ),
         };
 
         let body = Json(json!({

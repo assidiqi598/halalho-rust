@@ -50,6 +50,11 @@ services:
       - ./rabbitmq/client_certificate.pem:/app/rabbitmq_client_certs/client_certificate.pem:ro
       - ./rabbitmq/client_key.pem:/app/rabbitmq_client_certs/client_key.pem:ro
     environment:
+      - APP_NAME=${APP_NAME}
+      - DOMAIN=${DOMAIN}
+      - SUPPORT_EMAIL=${SUPPORT_EMAIL}
+      - COMPANY_ADDRESS=${COMPANY_ADDRESS}
+      - MONGO_URI=${MONGO_URI}
       - BREVO_API_KEY=${BREVO_API_KEY}
       - BREVO_SENDER_NAME=${BREVO_SENDER_NAME}
       - BREVO_SENDER_EMAIL=${BREVO_SENDER_EMAIL}

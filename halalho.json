@@ -1,0 +1,366 @@
+{
+    "project_info": {
+        "name": "Halalho",
+        "version": "1.0.0",
+        "philosophy": "Ethical Social Connectivity",
+        "compliance_standard": "Sharia-Compliant (No Nudity, No Music, No Hoaxes, Privacy-First)",
+        "tech_stack": {
+            "backend_language": "Rust",
+            "framework": "Axum",
+            "database": "MongoDB (mongodb crate)",
+            "storage": "Cloudflare R2 (aws-sdk-s3)",
+            "messaging": "RabbitMQ (amqprs)",
+            "frontend_framework": "Flutter (Dart)"
+        }
+    },
+    "permissions_matrix": {
+        "roles": {
+            "GUEST": {
+                "description": "Unauthenticated user",
+                "capabilities": [
+                    "view_landing",
+                    "login",
+                    "register"
+                ]
+            },
+            "USER": {
+                "description": "Standard authenticated user",
+                "capabilities": [
+                    "view_landing",
+                    "login",
+                    "register",
+                    "view_feed",
+                    "upload_media",
+                    "like",
+                    "comment",
+                    "appeal_moderation"
+                ]
+            },
+            "VALIDATED_USER": {
+                "description": "Verified identity user",
+                "capabilities": [
+                    "view_landing",
+                    "login",
+                    "register",
+                    "view_feed",
+                    "upload_media",
+                    "like",
+                    "comment",
+                    "appeal_moderation",
+                    "broadcast_live",
+                    "create_ads",
+                    "monetization"
+                ]
+            },
+            "ADMIN": {
+                "description": "System moderator",
+                "capabilities": [
+                    "global_ban",
+                    "override_ai_filter",
+                    "approve_ads",
+                    "view_moderation_queue"
+                ]
+            }
+        }
+    },
+    "storage_buckets": {
+        "provider": "Cloudflare R2",
+        "buckets": [
+            {
+                "name": "halalho-media-raw",
+                "access": "private",
+                "lifecycle": "7_days_retention_if_rejected"
+            },
+            {
+                "name": "halalho-media-public",
+                "access": "public_read",
+                "cdn": "enabled"
+            },
+            {
+                "name": "halalho-thumbnails",
+                "access": "public_read"
+            }
+        ]
+    },
+    "backend_services": [
+        {
+            "service_name": "AuthService",
+            "description": "Handles identity, JWT issuance, and Argon2 hashing.",
+            "port": 8080,
+            "data_models": [
+                {
+                    "struct_name": "User",
+                    "fields": {
+                        "_id": "ObjectId",
+                        "username": "String",
+                        "email": "String",
+                        "password_hash": "String",
+                        "role": "Enum(User, Validated, Admin)",
+                        "is_banned": "bool",
+                        "created_at": "DateTime<Utc>"
+                    }
+                }
+            ],
+            "endpoints": [
+                {
+                    "route": "/auth/register",
+                    "method": "POST",
+                    "auth_level": "GUEST"
+                },
+                {
+                    "route": "/auth/login",
+                    "method": "POST",
+                    "auth_level": "GUEST"
+                },
+                {
+                    "route": "/auth/refresh",
+                    "method": "POST",
+                    "auth_level": "USER"
+                }
+            ]
+        },
+        {
+            "service_name": "EmailService",
+            "description": "Handles email verification using Brevo API with reqwest library.",
+            "port": 8085,
+            "dependencies": [
+                "reqwest"
+            ],
+            "amqp_events": {
+                "consumes": [
+                    "users.reg.email"
+                ]
+            }
+        },
+        {
+            "service_name": "MediaService",
+            "description": "Handles presigned URLs for R2 and media metadata management.",
+            "port": 8081,
+            "data_models": [
+                {
+                    "struct_name": "MediaItem",
+                    "fields": {
+                        "_id": "ObjectId",
+                        "user_id": "ObjectId",
+                        "r2_key": "String",
+                        "media_type": "Enum(Photo, Video)",
+                        "caption": "String",
+                        "sharia_compliance_status": "Enum(Pending, Compliant, Violation, Appealed, ManualOverride)",
+                        "violation_reasons": "Vec<String>",
+                        "appeal_note": "Option<String>",
+                        "views": "u64",
+                        "created_at": "DateTime<Utc>"
+                    }
+                }
+            ],
+            "amqp_events": {
+                "publishes": [
+                    "media.uploaded"
+                ],
+                "consumes": [
+                    "filter.result"
+                ]
+            },
+            "endpoints": [
+                {
+                    "route": "/media/presign",
+                    "method": "GET",
+                    "auth_level": "USER",
+                    "note": "Get R2 upload URL"
+                },
+                {
+                    "route": "/media/finalize",
+                    "method": "POST",
+                    "auth_level": "USER",
+                    "note": "Trigger analysis"
+                },
+                {
+                    "route": "/media/feed",
+                    "method": "GET",
+                    "auth_level": "USER",
+                    "note": "Only returns Compliant or ManualOverride"
+                },
+                {
+                    "route": "/media/:id/appeal",
+                    "method": "POST",
+                    "auth_level": "USER",
+                    "note": "Request force publish via admin"
+                }
+            ]
+        },
+        {
+            "service_name": "FilterService",
+            "description": "The AI Hook. Consumes upload events, runs Sharia logic, updates status.",
+            "port": 8082,
+            "logic_type": "Worker (No public HTTP endpoints)",
+            "amqp_events": {
+                "consumes": [
+                    "media.uploaded"
+                ],
+                "publishes": [
+                    "filter.result"
+                ]
+            },
+            "dependencies": [
+                "ComputerVisionClient",
+                "AudioAnalysisClient",
+                "NLPClient"
+            ]
+        },
+        {
+            "service_name": "StreamService",
+            "description": "Manages live WebSocket connections and RTMP tokens.",
+            "port": 8083,
+            "data_models": [
+                {
+                    "struct_name": "LiveSession",
+                    "fields": {
+                        "_id": "ObjectId",
+                        "host_id": "ObjectId",
+                        "stream_key": "String",
+                        "is_active": "bool",
+                        "viewers_count": "u32"
+                    }
+                }
+            ],
+            "endpoints": [
+                {
+                    "route": "/stream/start",
+                    "method": "POST",
+                    "auth_level": "VALIDATED_USER"
+                },
+                {
+                    "route": "/stream/join/:id",
+                    "method": "GET",
+                    "auth_level": "USER"
+                }
+            ]
+        },
+        {
+            "service_name": "AdService",
+            "description": "Ad injection and payment processing.",
+            "port": 8084,
+            "data_models": [
+                {
+                    "struct_name": "Advertisement",
+                    "fields": {
+                        "_id": "ObjectId",
+                        "advertiser_id": "ObjectId",
+                        "media_content": "MediaItem",
+                        "target_audience": "Vec<String>",
+                        "payment_status": "Enum(Unpaid, Paid, Refunded)",
+                        "approval_status": "Enum(Pending, Approved, Rejected)"
+                    }
+                }
+            ],
+            "endpoints": [
+                {
+                    "route": "/ads/create",
+                    "method": "POST",
+                    "auth_level": "VALIDATED_USER"
+                },
+                {
+                    "route": "/ads/pay",
+                    "method": "POST",
+                    "auth_level": "VALIDATED_USER"
+                }
+            ]
+        }
+    ],
+    "sharia_filter_logic": {
+        "workflow": [
+            {
+                "step": 1,
+                "name": "Visual_Scan",
+                "action": "Detect Skin/Nudity & Face Privacy",
+                "failure_condition": "Skin_Percentage > 15% OR Explicit_Tags_Detected",
+                "on_failure": "Mark Violation: 'Awrah_Exposed'"
+            },
+            {
+                "step": 2,
+                "name": "Audio_Scan",
+                "action": "Spectral Analysis for Musical Instruments",
+                "failure_condition": "Harmonic_Instrument_Confidence > 0.85",
+                "on_failure": "Mark Violation: 'Music_Detected'"
+            },
+            {
+                "step": 3,
+                "name": "Context_Scan",
+                "action": "OCR & Transcript NLP",
+                "failure_condition": "Matches_Known_Hoax_Db OR Gambling_Keywords",
+                "on_failure": "Mark Violation: 'Prohibited_Content'"
+            },
+            {
+                "result_handler": {
+                    "if_clean": "Update DB: status=Compliant. Move object from R2 'raw' to 'public'.",
+                    "if_violation": "Update DB: status=Violation. Keep in 'raw'. Send Push Notification to User."
+                }
+            }
+        ]
+    },
+    "mobile_ui_screens": {
+        "framework": "Flutter",
+        "navigation_stack": [
+            {
+                "stack": "AuthStack",
+                "screens": [
+                    "WelcomeScreen",
+                    "LoginScreen",
+                    "RegisterScreen",
+                    "EmailVerification"
+                ]
+            },
+            {
+                "stack": "MainTabNavigator",
+                "screens": [
+                    {
+                        "name": "HomeFeed",
+                        "components": [
+                            "StoryReel",
+                            "InfiniteScrollList",
+                            "AdInjector"
+                        ]
+                    },
+                    {
+                        "name": "Explore",
+                        "components": [
+                            "Search",
+                            "TrendingHashTags"
+                        ]
+                    },
+                    {
+                        "name": "PostCreation",
+                        "components": [
+                            "CameraCapture",
+                            "MediaPicker",
+                            "ComplianceCheckOverlay"
+                        ]
+                    },
+                    {
+                        "name": "Profile",
+                        "components": [
+                            "UserStats",
+                            "MyGrid",
+                            "EditProfile"
+                        ]
+                    }
+                ]
+            },
+            {
+                "stack": "ModerationFlow",
+                "screens": [
+                    "ViolationErrorScreen",
+                    "AppealFormScreen"
+                ]
+            },
+            {
+                "stack": "AdminDashboard",
+                "screens": [
+                    "ContentModerationQueue",
+                    "AdApprovalQueue",
+                    "UserBanManagement"
+                ]
+            }
+        ]
+    }
+}

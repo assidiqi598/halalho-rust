@@ -17,6 +17,7 @@ use axum::extract::Query;
 use axum::{Json, debug_handler, extract::State, http::StatusCode};
 use chrono::offset::LocalResult;
 use chrono::{TimeZone, Utc};
+use serde_json::json;
 use std::sync::Arc;
 
 #[debug_handler]
@@ -53,78 +54,91 @@ pub async fn register(
 
     let user_id = state.user_service.create_user(&user).await?;
 
-    // Send email to verify email address
-    tokio::spawn({
-        let state = state.clone();
-        let username = user.username.clone();
-        let email = user.email.clone();
-        let user_id = user_id.clone();
-
-        async move {
-            if let Err(err) = async {
-                let (object_bytes, ext) = state
-                    .storage_service
-                    .get_object("halalho/email-templates/verify-email.html")
-                    .await
-                    .map_err(|_| CustomError::R2Error)?;
-
-                let object_extension = ext.ok_or(CustomError::R2Error)?;
-
-                let (raw_token, token_hash) =
-                    state.auth_service.generate_email_verification_token()?;
-
-                let new_verif_email_token = NewEmailVerifToken {
-                    userId: user_id,
-                    tokenHash: token_hash,
-                    expiresAt: Utc
-                        .timestamp_opt(
-                            (now_epoch() + EMAIL_VERIFICATION_EXP_MINUTES as usize) as i64,
-                            0,
-                        )
-                        .single()
-                        .ok_or_else(|| {
-                            tracing::error!(
-                                "Error converting timestamp for verif email token expiration"
-                            );
-                            CustomError::TokenCreation
-                        })?,
-                    createdAt: Utc::now(),
-                    usedAt: None,
-                };
-
-                state
-                    .verif_email_token_service
-                    .create_token(&new_verif_email_token)
-                    .await?;
-
-                let values = EmailTemplateValues::VerifyEmailValues(VerifyEmail::new(
-                    &username,
-                    &user_id.to_hex(),
-                    &raw_token,
-                ));
-
-                let email_html = state.email_service.prepare_template(
-                    &object_bytes,
-                    &object_extension,
-                    values,
-                )?;
-
-                let email: Email = Email::new(
-                    vec![(&username, &email)],
-                    email_html,
-                    "Please verify your email-address",
-                );
-
-                state.email_service.send_transactional_email(email).await?;
-
-                Ok::<(), CustomError>(())
-            }
-            .await
-            {
-                tracing::error!("Failed to send verification email for {}: {:?}", email, err)
-            }
-        }
+    let msg = json!({
+        "user_id": user_id.to_hex(),
+        "email": user.email,
+        "username": user.username,
     });
+
+    let msg = serde_json::to_vec(&msg).map_err(|_| CustomError::SerializationError)?;
+
+    state
+        .rabbitmq_service
+        .publish("amq.topic", "users.reg.email", &msg)
+        .await?;
+
+    // Send email to verify email address
+    // tokio::spawn({
+    //     let state = state.clone();
+    //     let username = user.username.clone();
+    //     let email = user.email.clone();
+    //     let user_id = user_id.clone();
+
+    //     async move {
+    //         if let Err(err) = async {
+    //             let (object_bytes, ext) = state
+    //                 .storage_service
+    //                 .get_object("halalho/email-templates/verify-email.html")
+    //                 .await
+    //                 .map_err(|_| CustomError::R2Error)?;
+
+    //             let object_extension = ext.ok_or(CustomError::R2Error)?;
+
+    //             let (raw_token, token_hash) =
+    //                 state.auth_service.generate_email_verification_token()?;
+
+    //             let new_verif_email_token = NewEmailVerifToken {
+    //                 userId: user_id,
+    //                 tokenHash: token_hash,
+    //                 expiresAt: Utc
+    //                     .timestamp_opt(
+    //                         (now_epoch() + EMAIL_VERIFICATION_EXP_MINUTES as usize) as i64,
+    //                         0,
+    //                     )
+    //                     .single()
+    //                     .ok_or_else(|| {
+    //                         tracing::error!(
+    //                             "Error converting timestamp for verif email token expiration"
+    //                         );
+    //                         CustomError::TokenCreation
+    //                     })?,
+    //                 createdAt: Utc::now(),
+    //                 usedAt: None,
+    //             };
+
+    //             state
+    //                 .verif_email_token_service
+    //                 .create_token(&new_verif_email_token)
+    //                 .await?;
+
+    //             let values = EmailTemplateValues::VerifyEmailValues(VerifyEmail::new(
+    //                 &username,
+    //                 &user_id.to_hex(),
+    //                 &raw_token,
+    //             ));
+
+    //             let email_html = state.email_service.prepare_template(
+    //                 &object_bytes,
+    //                 &object_extension,
+    //                 values,
+    //             )?;
+
+    //             let email: Email = Email::new(
+    //                 vec![(&username, &email)],
+    //                 email_html,
+    //                 "Please verify your email-address",
+    //             );
+
+    //             state.email_service.send_transactional_email(email).await?;
+
+    //             Ok::<(), CustomError>(())
+    //         }
+    //         .await
+    //         {
+    //             tracing::error!("Failed to send verification email for {}: {:?}", email, err)
+    //         }
+    //     }
+    // });
 
     // Generate tokens for authentication
     let (tokens, jti, exp) = state

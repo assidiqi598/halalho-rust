@@ -1,7 +1,7 @@
 use amqprs::{
     callbacks::{DefaultChannelCallback, DefaultConnectionCallback},
     channel::{
-        BasicConsumeArguments, Channel, QueueBindArguments,
+        Channel, QueueBindArguments,
         QueueDeclareArguments,
     },
     connection::{Connection, OpenConnectionArguments},
@@ -9,9 +9,7 @@ use amqprs::{
 };
 use std::{env::var, path::PathBuf};
 
-use crate::types::consumer::MainServiceConsumer;
-
-pub async fn setup_rabbitmq_client() -> (Connection, Channel, String) {
+pub async fn setup_rabbitmq_client() -> (Connection, Channel, String, String) {
     let cert_dir = PathBuf::from(var("RABBITMQ_CERT_DIR").expect("RABBITMQ_CERT_DIR missing"));
 
     let domain = var("RABBITMQ_CERT_DOMAIN").expect("RABBITMQ_CERT_DOMAIN missing");
@@ -75,14 +73,5 @@ pub async fn setup_rabbitmq_client() -> (Connection, Channel, String) {
         .await
         .unwrap();
 
-    let args = BasicConsumeArguments::new(&queue_name, "email_consumer")
-        .manual_ack(true)
-        .finish();
-
-    channel
-        .basic_consume(MainServiceConsumer, args)
-        .await
-        .unwrap();
-
-    (conn, channel, routing_key.to_owned())
+    (conn, channel, routing_key.to_owned(), queue_name)
 }
